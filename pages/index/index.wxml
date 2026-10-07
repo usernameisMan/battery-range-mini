@@ -1,0 +1,271 @@
+<view class="page">
+  <!-- 首次进入引导 -->
+  <view wx:if="{{showOnboarding}}" class="onboarding-mask">
+    <view class="onboarding-card">
+      <text class="onboarding-icon">{{onboardingSteps[onboardingStep].icon}}</text>
+      <text class="onboarding-title">{{onboardingSteps[onboardingStep].title}}</text>
+      <text class="onboarding-desc">{{onboardingSteps[onboardingStep].desc}}</text>
+
+      <view class="onboarding-dots">
+        <view
+          wx:for="{{onboardingSteps}}"
+          wx:key="index"
+          class="onboarding-dot {{onboardingStep === index ? 'active' : ''}}"
+        ></view>
+      </view>
+
+      <view class="onboarding-actions">
+        <view class="onboarding-skip" bindtap="onOnboardingSkip">跳过</view>
+        <view class="onboarding-next" bindtap="onOnboardingNext">{{ onboardingStep === onboardingSteps.length - 1 ? '开始使用' : '下一步' }}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 结果展示区 -->
+  <view class="result-card" style="padding-top: {{topSafeArea}}px">
+    <view class="result-glow-a"></view>
+    <view class="result-glow-b"></view>
+
+    <view class="result-title">{{rangeTitle}}</view>
+    <view class="result-number-row">
+      <text class="result-number">{{resultKm}}</text>
+      <text class="result-unit">km</text>
+    </view>
+    <view class="tag-row">
+      <text class="tag tag-battery">{{batteryTagLabel}}</text>
+      <text wx:if="{{wotMode}}" class="tag tag-wot">⚡ 满油门</text>
+    </view>
+
+    <view class="gauge-row">
+      <text>有效电量利用率</text>
+      <text>{{efficiencyText}}</text>
+    </view>
+    <view class="progress-track">
+      <view
+        class="progress-fill"
+        style="width: {{rangeBarWidth}}%; background: {{rangeBarColor}};"
+      ></view>
+    </view>
+
+    <view class="stat-box">
+      <view class="stat-row">
+        <text class="stat-label">总能量储备</text>
+        <text class="stat-value">{{totalEnergy}} Wh</text>
+      </view>
+      <view class="stat-row">
+        <text class="stat-label">实际可用能量</text>
+        <text class="stat-value">{{usableEnergy}} Wh</text>
+      </view>
+      <view class="stat-row">
+        <text class="stat-label">电池重量(估算)</text>
+        <text class="stat-value">{{batteryWeight}} kg</text>
+      </view>
+      <view class="stat-row">
+        <text class="stat-label">整车总重(含电池)</text>
+        <text class="stat-value">{{effectiveWeight}} kg</text>
+      </view>
+      <view class="stat-row">
+        <text class="stat-label">百公里综合电耗</text>
+        <text class="stat-value">{{whPerKmDisplay}} Wh/km</text>
+      </view>
+      <view class="stat-row stat-row-last">
+        <text class="stat-label">综合能效(越高越好)</text>
+        <text class="stat-value stat-value-warn">{{totalEfficiencyDisplay}}%</text>
+      </view>
+    </view>
+
+    <view wx:if="{{isLead}}" class="lead-warning">
+      注意：铅酸电池在大电流下有效容量会显著衰减。
+    </view>
+    <view class="footer-note">数据仅供参考，实际里程受电池老化程度及胎压影响。</view>
+  </view>
+
+  <!-- 1. 电池核心 -->
+  <view class="card">
+    <view class="card-title">1. 电池核心 Battery</view>
+
+    <view class="field-label">电池类型</view>
+    <view class="battery-type-row">
+      <view
+        wx:for="{{batteryTypes}}"
+        wx:key="key"
+        data-index="{{index}}"
+        bindtap="onSelectBatteryType"
+        class="battery-btn battery-btn-{{item.key}} {{batteryTypeIndex === index ? 'active' : ''}}"
+      >
+        {{item.label}}
+      </view>
+    </view>
+    <view class="hint hint-{{batteryTypes[batteryTypeIndex].key}}">
+      {{batteryTypes[batteryTypeIndex].hint}}
+    </view>
+
+    <view class="row-2col">
+      <view class="input-block">
+        <view class="field-label">电压 (V)</view>
+        <view class="input-wrap">
+          <input
+            class="text-input"
+            type="digit"
+            value="{{voltageInput}}"
+            bindinput="onVoltageInput"
+          />
+          <text class="input-unit">V</text>
+        </view>
+      </view>
+      <view class="input-block">
+        <view class="field-label">容量 (Ah)</view>
+        <view class="input-wrap">
+          <input
+            class="text-input"
+            type="digit"
+            value="{{ampHoursInput}}"
+            bindinput="onAmpHoursInput"
+          />
+          <text class="input-unit">Ah</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="mini-stat-row">
+      <text class="mini-stat-label">⚖️ 预估电池包自重(Pack成组)</text>
+      <text class="mini-stat-value">{{batteryWeight}} kg</text>
+    </view>
+    <view class="mini-stat-row" style="margin-top: 12rpx">
+      <text class="mini-stat-label">🔋 常规放电有效深度(DOD)</text>
+      <text class="mini-stat-value">{{usableEnergyRatio}}%</text>
+    </view>
+  </view>
+
+  <!-- 2. 动力与速度 -->
+  <view class="card">
+    <view class="card-title">2. 动力与速度 Power</view>
+
+    <view class="field-label">车型(决定风阻面积与电机规格)</view>
+    <view class="battery-type-row">
+      <view
+        wx:for="{{vehicleTypes}}"
+        wx:key="key"
+        data-index="{{index}}"
+        bindtap="onSelectVehicleType"
+        class="battery-btn battery-btn-{{item.key === 'compact' ? 'ternary' : 'lead'}} {{vehicleTypeIndex === index ? 'active' : ''}}"
+      >
+        {{item.label}}
+      </view>
+    </view>
+    <view class="hint hint-ternary">{{vehicleTypes[vehicleTypeIndex].hint}}</view>
+
+    <view class="field-label" style="margin-top: 16rpx">⚡ 电机额定功率 (标称硬件规格)</view>
+    <view class="input-wrap">
+      <input
+        class="text-input"
+        type="digit"
+        value="{{motorRatedPowerInput}}"
+        bindinput="onMotorRatedPowerInput"
+      />
+      <text class="input-unit">W</text>
+    </view>
+    <view class="power-hint">新国标强制标准限定 400W 额定电机；常见电摩标配 800W~2000W</view>
+
+    <view class="wot-switch-row" style="margin-top: 24rpx">
+      <text class="wot-switch-label">⚡ 满油门极速模式(按电机额定功率全力持续输出)</text>
+      <switch checked="{{wotMode}}" color="#ef4444" bindchange="onWotModeChange" />
+    </view>
+
+    <block wx:if="{{!wotMode}}">
+      <view class="field-row">
+        <text class="field-label">🚀 平均巡航速度</text>
+        <text class="field-value-blue">{{speed}} km/h</text>
+      </view>
+      <slider
+        min="10"
+        max="60"
+        value="{{speed}}"
+        show-value="{{false}}"
+        activeColor="#3b82f6"
+        backgroundColor="#e5e7eb"
+        block-color="#3b82f6"
+        bindchanging="onSpeedChange"
+        bindchange="onSpeedChange"
+      />
+      <view class="slider-legend">
+        <text>Eco (15)</text>
+        <text>Std (25)</text>
+        <text>Sport (50+)</text>
+      </view>
+
+      <view class="power-box">
+        <view class="power-box-header">
+          <text class="field-label">🔧 实际巡航电功率 (电池端真实消耗)</text>
+          <text class="power-badge">负载率 {{motorLoadRatio}}%</text>
+        </view>
+        <view class="power-readout">{{power}} <text class="power-readout-unit">W</text></view>
+        <view class="power-substat">
+          <text>轮边克服阻力功: {{mechanicalPower}}W</text>
+          <text>电机机电效率: {{motorEfficiency}}%</text>
+        </view>
+        <view class="power-hint">包含克服滚阻风阻净推力、电机轻载效率衰减及车载仪表大灯等底噪损耗</view>
+      </view>
+    </block>
+
+    <block wx:else>
+      <view class="power-box power-box-wot">
+        <view class="power-box-header">
+          <text class="field-label">🔧 满油门持续功率 (全力输出)</text>
+          <text class="power-badge-wot">100% 满负荷</text>
+        </view>
+        <view class="power-readout">{{motorRatedPower}} <text class="power-readout-unit">W</text></view>
+        <view class="power-hint">以电机额定功率全力持续输出，解算阻力平衡极速与极限工况续航</view>
+      </view>
+      <view class="wot-speed-box">
+        <text>🚀 满油门预计极速</text>
+        <text class="wot-speed-value">{{wotSpeedDisplay}} km/h</text>
+      </view>
+    </block>
+  </view>
+
+  <!-- 3. 环境与路况 -->
+  <view class="card">
+    <view class="card-title">3. 环境与路况 Environment</view>
+
+    <view class="field-label">⚖️ 总载重</view>
+    <view class="input-wrap">
+      <input
+        class="text-input"
+        type="digit"
+        value="{{weightInput}}"
+        bindinput="onWeightInput"
+      />
+      <text class="input-unit">kg</text>
+    </view>
+    <view class="power-hint"
+      >人 + 车架(不含电池) + 货，电池重量已自动计算，无需重复填写。例：九号F2Z110Max
+      车架(不含电池)约55kg，75kg骑手空载应填 130</view
+    >
+
+    <view class="field-label" style="margin-top: 24rpx">🌡️ 气温环境</view>
+    <picker
+      mode="selector"
+      range="{{temperatureOptions}}"
+      range-key="label"
+      value="{{temperatureIndex}}"
+      bindchange="onTemperatureChange"
+    >
+      <view class="picker-display">
+        {{temperatureOptions[temperatureIndex].label}}
+        <text style="color: #059669; font-weight: 600; font-size: 24rpx; margin-left: 12rpx;">保持率约 {{tempRetention}}%</text>
+      </view>
+    </picker>
+
+    <view class="field-label" style="margin-top: 24rpx">🚦 城市启停影响</view>
+    <picker
+      mode="selector"
+      range="{{roadOptions}}"
+      range-key="label"
+      value="{{roadIndex}}"
+      bindchange="onRoadChange"
+    >
+      <view class="picker-display">{{roadOptions[roadIndex].label}}</view>
+    </picker>
+  </view>
+</view>

@@ -1,0 +1,10 @@
+page {
+  background-color: #f0f4f8;
+  font-size: 28rpx;
+  color: #1f2937;
+  box-sizing: border-box;
+}
+
+view {
+  box-sizing: border-box;
+}
