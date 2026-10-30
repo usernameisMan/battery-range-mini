@@ -253,6 +253,13 @@ Page({
     this.calculate();
   },
 
+  onShow() {
+    // 同步底部导航选中态（自定义 tabBar 需要页面主动通知）
+    if (typeof this.getTabBar === "function" && this.getTabBar()) {
+      this.getTabBar().setData({ selected: 0 });
+    }
+  },
+
   onShareAppMessage() {
     return {
       title: "电动车续航计算器 - 填电池/电机参数，实时估算续航",
@@ -503,5 +510,17 @@ Page({
       isLead: typeConfig.key === "lead",
       wotSpeedDisplay: wotSpeedDisplay,
     });
+
+    // 写入共享 storage，供「回本与租买计算器」带入单公里电耗
+    try {
+      wx.setStorageSync("rangeCalcSummary", {
+        whPerKm: Math.round(whPerKm * 10) / 10,
+        speed: speed,
+        rangeKm: Math.round(range * 10) / 10,
+        updatedAt: Date.now(),
+      });
+    } catch (e) {
+      // 存储失败不影响计算
+    }
   },
 });

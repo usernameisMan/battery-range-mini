@@ -1,7 +1,16 @@
 {
   "description": "电动车续航计算器小程序",
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "type": "folder",
+        "value": ".history"
+      },
+      {
+        "type": "folder",
+        "value": ".git"
+      }
+    ],
     "include": []
   },
   "setting": {

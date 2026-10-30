@@ -1,0 +1,20 @@
+<view class="page">
+  <!-- 顶部标题区 -->
+  <view class="hero" style="padding-top: {{topSafeArea}}px">
+    <view class="hero-glow"></view>
+    <text class="hero-tag">即将上线</text>
+    <text class="hero-title">回本与租买</text>
+    <text class="hero-desc">对比自购与租电/租车方案的总花费，算清多久能回本。</text>
+  </view>
+
+  <!-- 占位内容 -->
+  <view class="card">
+    <view class="card-title">功能开发中</view>
+    <view class="empty">
+      <text class="empty-icon">💰</text>
+      <text class="empty-title">此页面正在建设中</text>
+      <text class="empty-desc">上线后可输入购车价、租金与日常使用成本，得到回本周期与方案对比结果。</text>
+      <view class="empty-btn" bindtap="goCalculator">先去用续航计算器</view>
+    </view>
+  </view>
+</view>

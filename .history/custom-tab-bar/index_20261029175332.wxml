@@ -1,0 +1,14 @@
+<!-- 使用 cover-view：canvas 是原生组件，普通 view 无法盖在它上面 -->
+<cover-view class="tab-bar">
+  <cover-view
+    wx:for="{{list}}"
+    wx:key="pagePath"
+    data-index="{{index}}"
+    data-path="{{item.pagePath}}"
+    class="tab-item {{selected === index ? 'active' : ''}}"
+    bindtap="onSwitchTab"
+  >
+    <cover-view class="tab-icon">{{item.icon}}</cover-view>
+    <cover-view class="tab-text">{{item.text}}</cover-view>
+  </cover-view>
+</cover-view>

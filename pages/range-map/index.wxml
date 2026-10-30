@@ -1,0 +1,20 @@
+<view class="page">
+  <!-- 顶部标题区 -->
+  <view class="hero" style="padding-top: {{topSafeArea}}px">
+    <view class="hero-glow"></view>
+    <text class="hero-tag">即将上线</text>
+    <text class="hero-title">续航规划</text>
+    <text class="hero-desc">把续航计算的结果落到地图上，直观查看一次满电能覆盖的范围。</text>
+  </view>
+
+  <!-- 占位内容 -->
+  <view class="card">
+    <view class="card-title">功能开发中</view>
+    <view class="empty">
+      <text class="empty-icon">🗺️</text>
+      <text class="empty-title">此页面正在建设中</text>
+      <text class="empty-desc">上线后可在地图上查看不同电池、车速与路况下的真实可达范围。</text>
+      <view class="empty-btn" bindtap="goCalculator">先去用续航计算器</view>
+    </view>
+  </view>
+</view>

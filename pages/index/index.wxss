@@ -1,5 +1,6 @@
 .page {
-  padding: 0 24rpx 60rpx;
+  /* 底部留出 tabBar 高度 + iPhone 安全区 */
+  padding: 0 24rpx calc(140rpx + env(safe-area-inset-bottom));
 }
 
 /* ---------- 结果卡片 ---------- */
