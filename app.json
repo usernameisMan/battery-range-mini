@@ -1,7 +1,7 @@
 {
   "pages": [
     "pages/index/index",
-    "pages/range-map/index",
+    "pages/rangeMap/index",
     "pages/payback/index"
   ],
   "window": {
@@ -22,8 +22,8 @@
         "text": "计算器"
       },
       {
-        "pagePath": "pages/range-map/index",
-        "text": "续航规划"
+        "pagePath": "pages/rangeMap/index",
+        "text": "续航地图"
       },
       {
         "pagePath": "pages/payback/index",
@@ -31,6 +31,15 @@
       }
     ]
   },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于计算你的续航可达范围与到目的地的路线"
+    }
+  },
+  "requiredPrivateInfos": [
+    "getLocation",
+    "chooseLocation"
+  ],
   "sitemapLocation": "sitemap.json",
   "style": "v2"
 }

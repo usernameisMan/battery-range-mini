@@ -4,7 +4,7 @@ Component({
     selected: 0,
     list: [
       { pagePath: "/pages/index/index", icon: "🔋", text: "计算器" },
-      { pagePath: "/pages/range-map/index", icon: "🗺️", text: "续航规划" },
+      { pagePath: "/pages/rangeMap/index", icon: "🗺️", text: "续航地图" },
       { pagePath: "/pages/payback/index", icon: "💰", text: "计算租买回本" },
     ],
   },

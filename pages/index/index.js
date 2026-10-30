@@ -2,6 +2,8 @@
 // 计算逻辑与桌面网页版保持一致，功率-速度曲线已用真实车辆数据校准
 // (48V30Ah、电机额定约800W、实测满油门极速约55km/h)
 
+const { maybeShowServiceTip } = require("../../utils/serviceTip");
+
 const BATTERY_TYPES = [
   {
     key: "ternary",
@@ -258,6 +260,7 @@ Page({
     if (typeof this.getTabBar === "function" && this.getTabBar()) {
       this.getTabBar().setData({ selected: 0 });
     }
+    maybeShowServiceTip();
   },
 
   onShareAppMessage() {
@@ -517,6 +520,20 @@ Page({
         whPerKm: Math.round(whPerKm * 10) / 10,
         speed: speed,
         rangeKm: Math.round(range * 10) / 10,
+        updatedAt: Date.now(),
+      });
+    } catch (e) {
+      // 存储失败不影响计算
+    }
+
+    // 写入共享 storage，供「续航地图」读取满电续航与电耗
+    try {
+      wx.setStorageSync("rangeCalc", {
+        fullRangeKm: Math.round(range * 10) / 10,
+        whPerKm: Math.round(whPerKm * 10) / 10,
+        batteryText: `${d.voltage}V ${d.ampHours}Ah ${typeConfig.label}`,
+        vehicleText: vehicle.label,
+        speed: speed,
         updatedAt: Date.now(),
       });
     } catch (e) {

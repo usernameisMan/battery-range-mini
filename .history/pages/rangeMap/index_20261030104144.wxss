@@ -1,0 +1,659 @@
+/* 续航地图：全屏地图 + 同层渲染的普通 view 叠加层 */
+.page {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: #f0f4f8;
+}
+
+.map {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- 顶部 ---------- */
+.top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding-left: 24rpx;
+  padding-right: 24rpx;
+  z-index: 10;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  height: 84rpx;
+  padding: 0 24rpx;
+  background: #ffffff;
+  border-radius: 42rpx;
+  box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.12);
+}
+
+.search-icon {
+  font-size: 28rpx;
+  margin-right: 12rpx;
+}
+
+.search-text {
+  flex: 1;
+  font-size: 27rpx;
+  color: #9ca3af;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.search-text.filled {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.search-clear {
+  width: 48rpx;
+  height: 48rpx;
+  line-height: 48rpx;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 26rpx;
+}
+
+.alert {
+  margin-top: 16rpx;
+  padding: 18rpx 20rpx;
+  background: rgba(255, 247, 237, 0.98);
+  border-left: 6rpx solid #f59e0b;
+  border-radius: 16rpx;
+  box-shadow: 0 6rpx 18rpx rgba(15, 23, 42, 0.08);
+}
+
+.alert-text {
+  font-size: 24rpx;
+  color: #92400e;
+  line-height: 1.5;
+}
+
+.alert-actions {
+  display: flex;
+  margin-top: 12rpx;
+}
+
+.alert-btn {
+  margin-right: 16rpx;
+  padding: 8rpx 22rpx;
+  font-size: 23rpx;
+  color: #1677ff;
+  background: #ffffff;
+  border-radius: 24rpx;
+}
+
+.alert-btn.weak {
+  color: #6b7280;
+}
+
+.result {
+  margin-top: 16rpx;
+  padding: 22rpx 24rpx;
+  background: #ffffff;
+  border-radius: 22rpx;
+  box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.12);
+}
+
+.result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.result-tag {
+  font-size: 25rpx;
+  font-weight: 600;
+  padding: 6rpx 16rpx;
+  border-radius: 12rpx;
+}
+
+.result-tag.ok {
+  color: #15803d;
+  background: #dcfce7;
+}
+
+.result-tag.tight {
+  color: #a16207;
+  background: #fef9c3;
+}
+
+.result-tag.short {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.result-dist {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.result-meta {
+  margin-top: 12rpx;
+  font-size: 23rpx;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.result-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10rpx;
+}
+
+.result-btn {
+  padding: 8rpx 22rpx;
+  font-size: 22rpx;
+  color: #1677ff;
+  background: #eff6ff;
+  border-radius: 20rpx;
+}
+
+.hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16rpx;
+  padding: 18rpx 24rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+  box-shadow: 0 6rpx 18rpx rgba(15, 23, 42, 0.1);
+}
+
+.hint-text {
+  font-size: 24rpx;
+  color: #1677ff;
+}
+
+.hint-arrow {
+  font-size: 30rpx;
+  color: #1677ff;
+}
+
+/* ---------- 底部参数卡片 ---------- */
+.dock {
+  position: absolute;
+  left: 16rpx;
+  right: 16rpx;
+  bottom: calc(116rpx + env(safe-area-inset-bottom));
+  padding: 22rpx 24rpx 18rpx;
+  background: #ffffff;
+  border-radius: 28rpx;
+  box-shadow: 0 10rpx 30rpx rgba(15, 23, 42, 0.14);
+  z-index: 12;
+}
+
+.dock-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14rpx 18rpx;
+  background: #eff6ff;
+  border-radius: 16rpx;
+  margin-bottom: 14rpx;
+}
+
+.dock-notice-text {
+  flex: 1;
+  font-size: 22rpx;
+  color: #1d4ed8;
+  line-height: 1.45;
+}
+
+.dock-notice-btn {
+  margin-left: 16rpx;
+  padding: 8rpx 20rpx;
+  font-size: 22rpx;
+  color: #ffffff;
+  background: #1677ff;
+  border-radius: 22rpx;
+  white-space: nowrap;
+}
+
+.manual {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.manual-input {
+  flex: 1;
+  height: 68rpx;
+  padding: 0 20rpx;
+  background: #f3f4f6;
+  border-radius: 14rpx;
+  font-size: 26rpx;
+}
+
+.manual-ph {
+  color: #9ca3af;
+}
+
+.manual-unit {
+  margin-left: 12rpx;
+  font-size: 24rpx;
+  color: #6b7280;
+}
+
+.dock-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.dock-main {
+  display: flex;
+  align-items: center;
+}
+
+.dock-num-input {
+  width: 170rpx;
+  font-size: 52rpx;
+  font-weight: 700;
+  color: #1677ff;
+  line-height: 1.1;
+}
+
+.dock-manual {
+  margin-left: 10rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+  font-size: 20rpx;
+  color: #1677ff;
+  background: rgba(22, 119, 255, 0.1);
+}
+
+.dock-tip {
+  margin-top: 8rpx;
+  font-size: 21rpx;
+  color: #9ca3af;
+}
+
+.dock-unit {
+  margin-left: 8rpx;
+  font-size: 23rpx;
+  color: #6b7280;
+}
+
+.dock-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.dock-theory {
+  font-size: 21rpx;
+  color: #9ca3af;
+}
+
+.dock-more {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #1677ff;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  margin-top: 14rpx;
+}
+
+.row-label {
+  width: 130rpx;
+  font-size: 24rpx;
+  color: #4b5563;
+  flex-shrink: 0;
+}
+
+.row-slider {
+  flex: 1;
+  margin: 0 12rpx;
+}
+
+.row-value {
+  width: 90rpx;
+  text-align: right;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+/* 一行放两个开关：左「往返」右「续航范围」 */
+.row-split {
+  justify-content: space-between;
+}
+
+.row-half {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.row-half.right {
+  justify-content: flex-end;
+}
+
+.row-label-plain {
+  margin-right: 8rpx;
+  font-size: 24rpx;
+  color: #4b5563;
+}
+
+.row-hint-line {
+  margin-top: 6rpx;
+  font-size: 21rpx;
+  color: #9ca3af;
+  padding-left: 130rpx;
+}
+
+.chips {
+  flex: 1;
+  display: flex;
+}
+
+.chip {
+  flex: 1;
+  margin-right: 10rpx;
+  height: 56rpx;
+  line-height: 56rpx;
+  text-align: center;
+  font-size: 23rpx;
+  color: #4b5563;
+  background: #f3f4f6;
+  border-radius: 12rpx;
+}
+
+.chip:last-child {
+  margin-right: 0;
+}
+
+.chip.on {
+  color: #ffffff;
+  background: #1677ff;
+  font-weight: 600;
+}
+
+.disclaimer {
+  margin-top: 16rpx;
+  padding-top: 14rpx;
+  border-top: 1rpx solid #f1f5f9;
+  font-size: 20rpx;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
+/* ---------- 底部半高卡片 ---------- */
+.sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(116rpx + env(safe-area-inset-bottom));
+  max-height: 58vh;
+  background: #ffffff;
+  border-radius: 28rpx 28rpx 0 0;
+  box-shadow: 0 -10rpx 30rpx rgba(15, 23, 42, 0.16);
+  z-index: 20;
+  overflow: hidden;
+  transition: max-height 0.2s ease;
+}
+
+.sheet.collapsed {
+  max-height: 76rpx;
+}
+
+.sheet-handle {
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sheet-bar {
+  width: 72rpx;
+  height: 8rpx;
+  border-radius: 4rpx;
+  background: #d1d5db;
+}
+
+.sheet-inner {
+  padding: 0 28rpx 24rpx;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sheet-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.sheet-close {
+  width: 48rpx;
+  height: 48rpx;
+  line-height: 48rpx;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 26rpx;
+}
+
+.sheet-desc {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.sheet-desc.warn {
+  color: #b91c1c;
+}
+
+.sheet-actions {
+  display: flex;
+  margin-top: 24rpx;
+}
+
+.btn {
+  flex: 1;
+  height: 82rpx;
+  line-height: 82rpx;
+  text-align: center;
+  border-radius: 20rpx;
+  font-size: 27rpx;
+}
+
+.btn.ghost {
+  margin-right: 20rpx;
+  color: #4b5563;
+  background: #f3f4f6;
+}
+
+/* 单独一行时不需要右侧留白 */
+.btn.ghost.wide {
+  margin-right: 0;
+}
+
+.btn.primary {
+  color: #ffffff;
+  background: #1677ff;
+  font-weight: 600;
+}
+
+.prefs {
+  display: flex;
+  margin-top: 18rpx;
+}
+
+.pref {
+  flex: 1;
+  margin-right: 10rpx;
+  height: 56rpx;
+  line-height: 56rpx;
+  text-align: center;
+  font-size: 22rpx;
+  color: #4b5563;
+  background: #f3f4f6;
+  border-radius: 12rpx;
+}
+
+.pref:last-child {
+  margin-right: 0;
+}
+
+.pref.on {
+  color: #ffffff;
+  background: #1677ff;
+  font-weight: 600;
+}
+
+.sheet-scroll {
+  max-height: 22vh;
+  margin-top: 16rpx;
+}
+
+.station {
+  padding: 18rpx 20rpx;
+  margin-bottom: 14rpx;
+  background: #f8fafc;
+  border-radius: 18rpx;
+}
+
+.station-top {
+  display: flex;
+  align-items: center;
+}
+
+.station-order {
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  text-align: center;
+  border-radius: 20rpx;
+  background: #16a34a;
+  color: #ffffff;
+  font-size: 22rpx;
+  font-weight: 700;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
+.station-name {
+  flex: 1;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #1f2937;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.station-tag {
+  margin-left: 12rpx;
+  padding: 4rpx 12rpx;
+  font-size: 20rpx;
+  color: #1677ff;
+  background: #e0f2fe;
+  border-radius: 10rpx;
+}
+
+.station-addr {
+  margin-top: 8rpx;
+  margin-left: 52rpx;
+  font-size: 22rpx;
+  color: #6b7280;
+  line-height: 1.45;
+}
+
+.station-meta {
+  margin-top: 8rpx;
+  margin-left: 52rpx;
+  font-size: 21rpx;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
+.station-btn {
+  margin-top: 12rpx;
+  margin-left: 52rpx;
+  display: inline-block;
+  padding: 8rpx 20rpx;
+  font-size: 22rpx;
+  color: #1677ff;
+  background: #ffffff;
+  border-radius: 20rpx;
+}
+
+.sheet-note {
+  margin-top: 12rpx;
+  font-size: 20rpx;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
+/* ---------- 隐私说明 ---------- */
+.mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 48rpx;
+  z-index: 50;
+}
+
+.privacy {
+  width: 100%;
+  padding: 36rpx 32rpx 28rpx;
+  background: #ffffff;
+  border-radius: 28rpx;
+}
+
+.privacy-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.privacy-text {
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  color: #4b5563;
+  line-height: 1.65;
+}
+
+.privacy-list {
+  margin-top: 14rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.privacy-item {
+  font-size: 22rpx;
+  color: #9ca3af;
+  line-height: 1.7;
+}
+
+.privacy-actions {
+  display: flex;
+  margin-top: 28rpx;
+}

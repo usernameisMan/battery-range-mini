@@ -1,0 +1,257 @@
+<!--
+  续航地图
+  地图为原生组件，这里使用「同层渲染」叠加普通 view（不使用 cover-view），
+  需要基础库 2.9.0 及以上（详见 README）。
+-->
+<view class="page">
+  <map
+    id="rangeMap"
+    class="map"
+    latitude="{{center.latitude}}"
+    longitude="{{center.longitude}}"
+    scale="{{scale}}"
+    include-points="{{fitPoints}}"
+    markers="{{markers}}"
+    polyline="{{polylines}}"
+    circles="{{circles}}"
+    show-location="{{showLocation}}"
+    enable-rotate="{{false}}"
+    enable-overlooking="{{false}}"
+    enable-satellite="{{false}}"
+  ></map>
+
+  <!-- 顶部：搜索 + 结果条 -->
+  <view class="top" style="padding-top: {{topSafeArea + 6}}px">
+    <view class="search" bindtap="chooseDestination">
+      <text class="search-icon">🔍</text>
+      <text class="search-text {{destination ? 'filled' : ''}}">{{destination ? destination.name : '选择目的地，判断能不能到'}}</text>
+      <text wx:if="{{destination}}" class="search-clear" catchtap="clearDestination">✕</text>
+    </view>
+
+    <!-- 开发者提示：从右向左滚过一遍后消失 -->
+    <view wx:if="{{noticeVisible}}" class="marquee">
+      <text class="marquee-text" bindanimationend="onNoticeEnd">{{noticeText}}</text>
+    </view>
+
+    <view wx:if="{{errorText}}" class="alert">
+      <text class="alert-text">{{errorText}}</text>
+      <view class="alert-actions">
+        <view wx:if="{{locationDenied}}" class="alert-btn" catchtap="onOpenSetting">去授权</view>
+        <view class="alert-btn" catchtap="onRetryLocation">重新定位</view>
+        <view class="alert-btn weak" catchtap="pickOrigin">手动选起点</view>
+      </view>
+    </view>
+
+    <view wx:if="{{routeInfo}}" class="result">
+      <view class="result-head">
+        <text class="result-tag {{routeInfo.level}}">{{routeInfo.levelText}}</text>
+        <text class="result-dist">{{routeInfo.distanceText}}</text>
+      </view>
+      <view class="result-meta">预计用时 {{routeInfo.durationText}} · 耗电约 {{routeInfo.usedText}} · 到达时剩余 {{routeInfo.remainText}}</view>
+      <view class="result-actions">
+        <view class="result-btn" catchtap="onPlanCharging">{{planAccepted ? '补电方案 ›' : '规划补电 ›'}}</view>
+      </view>
+    </view>
+
+    <!-- 可直达时的轻提示条 -->
+    <view wx:if="{{hintVisible}}" class="hint" bindtap="onPlanCharging">
+      <text class="hint-text">可直达，如需沿途补电可点这里</text>
+      <text class="hint-arrow">›</text>
+    </view>
+  </view>
+
+  <!-- 底部常驻参数卡片 -->
+  <view class="dock">
+    <view wx:if="{{!hasRangeCalc}}" class="dock-notice">
+      <text class="dock-notice-text">未读取到续航计算结果，请先去「续航计算器」计算，或在此填写满电续航</text>
+      <view class="dock-notice-btn" catchtap="goCalculator">去计算</view>
+    </view>
+
+    <view wx:if="{{!hasRangeCalc}}" class="manual">
+      <input
+        class="manual-input"
+        type="digit"
+        value="{{fullRangeInput}}"
+        placeholder="满电续航 km"
+        placeholder-class="manual-ph"
+        bindinput="onFullRangeInput"
+      />
+      <text class="manual-unit">km</text>
+    </view>
+
+    <view class="dock-head">
+      <view class="dock-main">
+        <input
+          class="dock-num-input"
+          type="digit"
+          value="{{realKm}}"
+          confirm-type="done"
+          bindconfirm="onRealKmCommit"
+          bindblur="onRealKmCommit"
+        />
+        <text class="dock-unit">km 可用续航</text>
+        <text class="dock-tag {{realManual ? 'on' : ''}}" catchtap="onResetRealKm">{{realManual ? '手动' : '自动'}}</text>
+      </view>
+      <view class="dock-side">
+        <text class="dock-theory">理论 {{theoryKm}} km</text>
+        <text class="dock-more" bindtap="toggleAdvanced">{{showAdvanced ? '收起设置' : '更多设置'}}</text>
+      </view>
+    </view>
+
+    <view class="dock-tip">{{realSourceText}}</view>
+
+    <view class="row">
+      <text class="row-label">当前电量</text>
+      <slider
+        class="row-slider"
+        min="5"
+        max="100"
+        step="1"
+        value="{{soc}}"
+        activeColor="#1677FF"
+        backgroundColor="#e5e7eb"
+        block-size="18"
+        bindchanging="onSocChanging"
+        bindchange="onSocChange"
+      />
+      <text class="row-value">{{soc}}%</text>
+    </view>
+
+    <view class="row">
+      <text class="row-label">安全预留</text>
+      <view class="chips">
+        <view
+          wx:for="{{reserveOptions}}"
+          wx:key="*this"
+          class="chip {{reserve === item ? 'on' : ''}}"
+          data-value="{{item}}"
+          bindtap="onSelectReserve"
+        >{{item}}%</view>
+      </view>
+    </view>
+
+    <view class="row row-split">
+      <view class="row-half">
+        <text class="row-label-plain">往返</text>
+        <switch checked="{{roundTrip}}" color="#1677FF" bindchange="onRoundTripChange" />
+      </view>
+      <view class="row-half right">
+        <text class="row-label-plain">续航范围</text>
+        <switch checked="{{showRange}}" color="#1677FF" bindchange="onToggleRange" />
+      </view>
+    </view>
+
+    <block wx:if="{{showAdvanced}}">
+      <view class="row">
+        <text class="row-label">绕路系数</text>
+        <slider
+          class="row-slider"
+          min="60"
+          max="90"
+          step="1"
+          value="{{detourFactor}}"
+          activeColor="#FADB14"
+          backgroundColor="#e5e7eb"
+          block-size="18"
+          bindchanging="onDetourChanging"
+          bindchange="onDetourChange"
+        />
+        <text class="row-value">{{detourFactor}}%</text>
+      </view>
+      <view class="row-hint-line">系数越大，续航圈越保守（按直线距离折算实际绕行）</view>
+    </block>
+
+    <view class="disclaimer">续航为估算值，未考虑坡度、风向、载重变化，补电点数据来自地图服务，是否可用以现场为准。</view>
+  </view>
+
+  <!-- 非遮蔽半高卡片：补电建议 / 补电方案 -->
+  <view wx:if="{{sheetVisible}}" class="sheet {{sheetCollapsed ? 'collapsed' : ''}}">
+    <view
+      class="sheet-handle"
+      bindtap="toggleSheet"
+      bindtouchstart="onSheetTouchStart"
+      bindtouchend="onSheetTouchEnd"
+    >
+      <view class="sheet-bar"></view>
+    </view>
+
+    <view wx:if="{{!sheetCollapsed}}" class="sheet-inner">
+      <block wx:if="{{sheetMode === 'suggest'}}">
+        <view class="sheet-title">{{sheetTitle}}</view>
+        <view class="sheet-desc">{{sheetDesc}}</view>
+        <view class="sheet-actions">
+          <view class="btn ghost" bindtap="dismissSheet">不用了</view>
+          <view class="btn primary" bindtap="onPlanCharging">规划补电</view>
+        </view>
+      </block>
+
+      <block wx:else>
+        <view class="sheet-head">
+          <view class="sheet-title-row">
+            <text class="sheet-title">补电方案</text>
+            <text wx:if="{{planAccepted}}" class="sheet-tag">使用中</text>
+          </view>
+          <text class="sheet-close" bindtap="onCancelPlan">✕</text>
+        </view>
+
+        <view class="prefs">
+          <view
+            wx:for="{{preferences}}"
+            wx:key="key"
+            class="pref {{preference === item.key ? 'on' : ''}}"
+            data-key="{{item.key}}"
+            bindtap="onSelectPreference"
+          >{{item.label}}</view>
+        </view>
+
+        <scroll-view scroll-y class="sheet-scroll" wx:if="{{!planning && planStations.length}}">
+          <view wx:for="{{planStations}}" wx:key="id" class="station">
+            <view class="station-top">
+              <text class="station-order">{{item.order}}</text>
+              <text class="station-name">{{item.name}}</text>
+              <text class="station-tag">{{item.typeLabel}}</text>
+            </view>
+            <view class="station-warn">{{item.siteLabel}}</view>
+            <view class="station-addr">{{item.address}}</view>
+            <view class="station-meta">距上一站 {{item.distanceKm}} km · 绕路 {{item.detourKm}} km · 到站电量 {{item.arriveSoc}}% · 补电约 {{item.chargeMinutes}} 分钟</view>
+            <view
+              class="station-btn"
+              data-lat="{{item.latitude}}"
+              data-lng="{{item.longitude}}"
+              data-name="{{item.name}}"
+              data-address="{{item.address}}"
+              bindtap="onViewStation"
+            >在地图中查看</view>
+          </view>
+        </scroll-view>
+
+        <view class="sheet-desc {{planFeasible ? '' : 'warn'}}">{{planMessage}}</view>
+        <view class="sheet-note">当前推荐站点为假数据，汽车充电站 / 电动车车棚充电站的区分仍在开发中；站点可不可用以现场为准，不提供预约或支付。</view>
+        <view class="sheet-actions">
+          <block wx:if="{{planFeasible && planStations.length && !planAccepted}}">
+            <view class="btn ghost" bindtap="onCancelPlan">取消</view>
+            <view class="btn primary" bindtap="onAcceptPlan">使用这条补电路线</view>
+          </block>
+          <view wx:else class="btn ghost wide" bindtap="onCancelPlan">取消补电，恢复缺电路线</view>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <!-- 隐私说明 -->
+  <view wx:if="{{showPrivacy}}" class="mask">
+    <view class="privacy">
+      <view class="privacy-title">位置与隐私说明</view>
+      <view class="privacy-text">{{privacyText}}</view>
+      <view class="privacy-list">
+        <text class="privacy-item">· 位置仅用于计算续航范围与路线</text>
+        <text class="privacy-item">· 不上传、不存储你的轨迹</text>
+        <text class="privacy-item">· 可拒绝授权，改用手动选点</text>
+      </view>
+      <view class="privacy-actions">
+        <view class="btn ghost" bindtap="onPrivacyReject">仅手动选点</view>
+        <view class="btn primary" bindtap="onPrivacyAgree">同意并开始</view>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,6 +1,7 @@
 // 外卖骑手「租车 / 买车」回本测算页
 // 计算全部在 utils/rentbuy.js 中完成，本文件只负责交互与展示
 const { calc, DEFAULTS, PRESET_PERCENTS } = require("../../utils/rentbuy");
+const { maybeShowServiceTip } = require("../../utils/serviceTip");
 
 const STORAGE_KEY = "paybackFormState";
 const RANGE_STORAGE_KEY = "rangeCalcSummary";
@@ -111,6 +112,25 @@ function fillWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
   return lines.length;
 }
 
+// 海报上的小程序码：从「小程序后台 → 推广 → 小程序码」下载后放到 assets 目录即可自动绘制
+const MINI_CODE_SRC = "../../assets/miniprogram-code.png";
+
+// 加载图片用于 canvas 2d（失败返回 null，由调用方画占位）
+function loadCanvasImage(canvas, src) {
+  return new Promise((resolve) => {
+    let image = null;
+    try {
+      image = canvas.createImage();
+    } catch (e) {
+      resolve(null);
+      return;
+    }
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = src;
+  });
+}
+
 Page({
   data: {
     topSafeArea: 0,
@@ -163,6 +183,7 @@ Page({
       this.getTabBar().setData({ selected: 2 });
     }
     this.checkRangeData();
+    maybeShowServiceTip();
   },
 
   onShareAppMessage() {
@@ -605,29 +626,36 @@ Page({
     }
 
     const ctx = canvas.getContext("2d");
-    this.drawPoster(ctx, W, H);
-
     wx.showLoading({ title: "生成海报中", mask: true });
-    wx.canvasToTempFilePath({
-      canvas,
-      x: 0,
-      y: 0,
-      width: W,
-      height: H,
-      destWidth: W * 2,
-      destHeight: H * 2,
-      success: (res) => {
+    Promise.resolve(this.drawPoster(ctx, canvas, W, H))
+      .then(
+        () =>
+          new Promise((resolve, reject) => {
+            wx.canvasToTempFilePath({
+              canvas,
+              x: 0,
+              y: 0,
+              width: W,
+              height: H,
+              destWidth: W * 2,
+              destHeight: H * 2,
+              success: resolve,
+              fail: reject,
+            });
+          })
+      )
+      .then((res) => {
         wx.hideLoading();
         this.savePoster(res.tempFilePath);
-      },
-      fail: () => {
+      })
+      .catch(() => {
         wx.hideLoading();
         wx.showToast({ title: "生成失败，请重试", icon: "none" });
-      },
-    });
+      });
   },
 
-  drawPoster(ctx, W, H) {
+  // 返回 Promise：小程序码图片是异步加载的，加载完再导出
+  drawPoster(ctx, canvas, W, H) {
     const res = this._last;
     const headline = this.data.headline;
     const heroSub = this.data.heroSub;
@@ -687,7 +715,7 @@ Page({
       { color: "#3b82f6", text: "买车" },
     ];
     legend.forEach((item, index) => {
-      const x = 470 + index * 100;
+      const x = 452 + index * 100;
       ctx.beginPath();
       ctx.fillStyle = item.color;
       ctx.arc(x, 588, 7, 0, Math.PI * 2);
@@ -697,29 +725,69 @@ Page({
       ctx.fillText(item.text, x + 14, 596);
     });
 
-    const box = { x: 48, y: 626, w: 482, h: 214 };
-    ctx.strokeStyle = "#eef2f7";
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= 3; i += 1) {
-      const y = box.y + (box.h / 3) * i;
-      ctx.beginPath();
-      ctx.moveTo(box.x, y);
-      ctx.lineTo(box.x + box.w, y);
-      ctx.stroke();
-    }
+    // 绘图区：左侧留纵轴刻度，底部留横轴刻度
+    const plot = { x: 122, y: 632, w: 400, h: 162 };
+    const plotBottom = plot.y + plot.h;
 
+    const curve = this.data.curve || [];
     let maxValue = 0;
-    this.data.curve.forEach((point) => {
+    curve.forEach((point) => {
       maxValue = Math.max(maxValue, point.rent, point.buy);
     });
-    maxValue = Math.max(maxValue * 1.05, 1);
+    if (maxValue <= 0) maxValue = 100;
+    const yStep = niceStep(maxValue / 4);
+    const yMax = Math.ceil(maxValue / yStep) * yStep;
 
-    const xOf = (month) => box.x + (month / CHART_MONTHS) * box.w;
-    const yOf = (value) => box.y + box.h * (1 - value / maxValue);
+    const xOf = (month) => plot.x + (month / CHART_MONTHS) * plot.w;
+    const yOf = (value) => plotBottom - (value / yMax) * plot.h;
+
+    // 横向网格 + 纵轴刻度
+    ctx.font = "18px sans-serif";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    for (let v = 0; v <= yMax + 0.001; v += yStep) {
+      const y = yOf(v);
+      ctx.strokeStyle = "#eef2f7";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(plot.x, y);
+      ctx.lineTo(plot.x + plot.w, y);
+      ctx.stroke();
+      ctx.fillStyle = "#94a3b8";
+      ctx.fillText(formatAxis(v), plot.x - 10, y);
+    }
+    // 纵轴单位
+    ctx.textAlign = "right";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText("元", plot.x - 10, plot.y - 14);
+
+    // 坐标轴
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(plot.x, plot.y - 8);
+    ctx.lineTo(plot.x, plotBottom);
+    ctx.lineTo(plot.x + plot.w, plotBottom);
+    ctx.stroke();
+
+    // 横轴刻度与刻度线
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    for (let m = 0; m <= CHART_MONTHS; m += 6) {
+      const x = xOf(m);
+      ctx.strokeStyle = "#cbd5e1";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x, plotBottom);
+      ctx.lineTo(x, plotBottom + 6);
+      ctx.stroke();
+      ctx.fillStyle = "#94a3b8";
+      ctx.fillText(String(m), x, plotBottom + 12);
+    }
 
     const drawPosterLine = (key, color) => {
       ctx.beginPath();
-      this.data.curve.forEach((point, index) => {
+      curve.forEach((point, index) => {
         const x = xOf(point.month);
         const y = yOf(point[key]);
         if (index === 0) ctx.moveTo(x, y);
@@ -735,7 +803,7 @@ Page({
 
     const payback = this.data.paybackMonth;
     if (payback && payback <= CHART_MONTHS) {
-      const point = this.data.curve[payback];
+      const point = curve[payback];
       if (point) {
         const x = xOf(payback);
         const y = yOf(point.buy);
@@ -745,28 +813,16 @@ Page({
         ctx.fill();
         ctx.fillStyle = "#1d4ed8";
         ctx.font = "bold 20px sans-serif";
-        ctx.textAlign = x > box.x + box.w - 90 ? "right" : "left";
+        ctx.textAlign = x > plot.x + plot.w - 90 ? "right" : "left";
+        ctx.textBaseline = "alphabetic";
         ctx.fillText(
           `回本 ${payback} 个月`,
-          x + (x > box.x + box.w - 90 ? -8 : 8),
+          x + (x > plot.x + plot.w - 90 ? -8 : 8),
           y - 12,
         );
         ctx.textAlign = "left";
       }
     }
-
-    // 小程序码占位
-    ctx.save();
-    ctx.setLineDash([8, 6]);
-    ctx.strokeStyle = "#cbd5e1";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(566, 626, 132, 132);
-    ctx.restore();
-    ctx.fillStyle = "#94a3b8";
-    ctx.font = "20px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("小程序码", 632, 790);
-    ctx.textAlign = "left";
 
     // 分隔线 + 页脚
     ctx.strokeStyle = "#eef2f7";
@@ -787,6 +843,43 @@ Page({
       30,
       2,
     );
+
+    // 小程序码
+    const codeBox = { x: 566, y: 626, w: 132, h: 132 };
+    return loadCanvasImage(canvas, MINI_CODE_SRC).then((image) => {
+      if (image) {
+        // 白底 + 居中，避免下载的码带透明边
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(codeBox.x, codeBox.y, codeBox.w, codeBox.h);
+        ctx.drawImage(image, codeBox.x, codeBox.y, codeBox.w, codeBox.h);
+      } else {
+        this.drawCodePlaceholder(ctx, codeBox);
+      }
+      ctx.fillStyle = "#64748b";
+      ctx.font = "18px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText("微信扫码", codeBox.x + codeBox.w / 2, codeBox.y + codeBox.h + 26);
+      ctx.fillText("测算你的回本周期", codeBox.x + codeBox.w / 2, codeBox.y + codeBox.h + 52);
+      ctx.textAlign = "left";
+    });
+  },
+
+  // 没有小程序码图片时的虚线占位
+  drawCodePlaceholder(ctx, box) {
+    ctx.save();
+    ctx.setLineDash([8, 6]);
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(box.x, box.y, box.w, box.h);
+    ctx.restore();
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "18px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("小程序码", box.x + box.w / 2, box.y + box.h / 2);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
   },
 
   savePoster(filePath) {
@@ -794,22 +887,46 @@ Page({
       filePath,
       success: () => {
         wx.showToast({ title: "海报已保存到相册", icon: "none" });
+        // 保存后自动弹出分享面板
+        setTimeout(() => this.sharePoster(filePath), 600);
       },
       fail: (err) => {
         const message = (err && err.errMsg) || "";
-        if (/auth|deny|cancel/i.test(message)) {
+        if (/auth|deny/i.test(message)) {
           wx.showModal({
-            title: "需要相册权限",
-            content: "保存海报需要访问相册，可在设置中开启。",
-            confirmText: "去设置",
+            title: "未获得相册权限",
+            content: "保存失败，可直接把海报分享给好友。",
+            confirmText: "去分享",
+            cancelText: "去设置",
             success: (result) => {
-              if (result.confirm) wx.openSetting();
+              if (result.confirm) this.sharePoster(filePath);
+              else wx.openSetting();
             },
           });
+        } else if (/cancel/i.test(message)) {
+          // 用户取消保存，不打扰
         } else {
-          wx.showToast({ title: "保存失败，请重试", icon: "none" });
+          wx.showToast({ title: "保存失败，可直接分享海报", icon: "none" });
+          this.sharePoster(filePath);
         }
       },
+    });
+  },
+
+  // 弹出微信的分享面板（基础库 2.14.3+）；低版本降级为预览长按转发
+  sharePoster(filePath) {
+    if (typeof wx.showShareImageMenu === "function") {
+      wx.showShareImageMenu({
+        path: filePath,
+        fail: () => {
+          // 用户取消或环境不支持，静默处理
+        },
+      });
+      return;
+    }
+    wx.previewImage({
+      urls: [filePath],
+      current: filePath,
     });
   },
 });
