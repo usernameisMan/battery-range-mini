@@ -1,0 +1,526 @@
+<view class="page">
+  <!-- ===== 结论 ===== -->
+  <view class="hero" style="padding-top: {{topSafeArea}}px">
+    <view class="hero-glow-a"></view>
+    <view class="hero-glow-b"></view>
+    <view class="hero-eyebrow">骑士 · 租车 / 买车 回本测算</view>
+    <view class="hero-headline">{{headline}}</view>
+    <view class="hero-sub">{{heroSub}}</view>
+    <view wx:if="{{heroAlt}}" class="hero-alt">{{heroAlt}}</view>
+
+    <view class="preset-row">
+      <view
+        wx:for="{{presets}}"
+        wx:key="key"
+        class="preset-btn {{residualPreset === item.key ? 'active' : ''}}"
+        data-key="{{item.key}}"
+        data-percent="{{item.percent}}"
+        bindtap="onSelectPreset"
+      >
+        {{item.label}} {{item.percent}}%
+      </view>
+    </view>
+    <view class="hero-note">残值按车价的 {{residualPercentValue}}% 估算，不含电池残值</view>
+  </view>
+
+  <!-- ===== 对比表 ===== -->
+  <view class="card">
+    <view class="card-title">租车 vs 买车</view>
+    <view class="cmp">
+      <view class="cmp-row cmp-head">
+        <text class="cmp-cell cmp-label">项目</text>
+        <text class="cmp-cell">租车</text>
+        <text class="cmp-cell">买车</text>
+      </view>
+      <view wx:for="{{compareRows}}" wx:key="label" class="cmp-row">
+        <text class="cmp-cell cmp-label">{{item.label}}</text>
+        <text class="cmp-cell {{item.better === 'rent' ? 'cmp-best' : ''}}">{{item.rent}}</text>
+        <text class="cmp-cell {{item.better === 'buy' ? 'cmp-best' : ''}}">{{item.buy}}</text>
+      </view>
+    </view>
+    <view class="card-note">
+      这张表比的是「租车 / 买车谁的总花费更低」，和你的收入无关；上面的回本天数按跑单净收入计算。买车月成本只含电费与维修；每公里成本按 {{summary.holdMonths}} 个月累计支出与总里程折算。
+    </view>
+  </view>
+
+  <!-- ===== 折线图 ===== -->
+  <view class="card">
+    <view class="card-title">累计成本走势（0~36 个月）</view>
+    <view class="legend">
+      <view class="legend-item">
+        <view class="legend-dot dot-rent"></view>
+        <text>租车累计</text>
+      </view>
+      <view class="legend-item">
+        <view class="legend-dot dot-buy"></view>
+        <text>买车累计（扣残值）</text>
+      </view>
+    </view>
+    <canvas type="2d" id="lineChart" class="chart"></canvas>
+    <view class="chart-note">纵轴：累计支出（元） · 横轴：月份</view>
+  </view>
+
+  <!-- ===== 容易漏算的钱 ===== -->
+  <view class="card warn-card">
+    <view class="card-title warn-title">容易漏算的钱</view>
+    <view class="warn-item">
+      <text class="warn-label">押金占用</text>
+      <text class="warn-text">{{warnings.deposit}} 在 {{warnings.rentMonths}} 个月租期内一直压着，退租才返还。</text>
+    </view>
+    <view class="warn-item">
+      <text class="warn-label">电池更换</text>
+      <text wx:if="{{warnings.batteryCount > 0}}" class="warn-text">按电池寿命计算，持有期内需更换 {{warnings.batteryCount}} 次，约 {{warnings.batteryCost}}。</text>
+      <text wx:else class="warn-text">按当前设置，持有期内无需更换电池。</text>
+    </view>
+    <view class="warn-item">
+      <text class="warn-label">上牌保险</text>
+      <text class="warn-text">{{warnings.oneTimeFee}} 为一次性支出，已计入买车初始投入。</text>
+    </view>
+    <view class="warn-item">
+      <text class="warn-label">停运损失</text>
+      <text class="warn-text">维修、事故、被扣车期间少跑的收入未计入，实际差距会更小。</text>
+    </view>
+  </view>
+
+  <!-- ===== 租车 / 买车方案（同一张卡片内切换） ===== -->
+  <view class="card">
+    <view class="card-title">1. 方案设置</view>
+
+    <view class="seg">
+      <view
+        class="seg-item {{planTab === 'rent' ? 'active' : ''}}"
+        data-value="rent"
+        bindtap="onSelectPlan"
+      >租车方案</view>
+      <view
+        class="seg-item {{planTab === 'buy' ? 'active' : ''}}"
+        data-value="buy"
+        bindtap="onSelectPlan"
+      >买车方案</view>
+    </view>
+
+    <!-- 租车 -->
+    <block wx:if="{{planTab === 'rent'}}">
+    <view class="row-2col" style="margin-top: 24rpx">
+      <view class="input-block">
+        <view class="field-label">月租金</view>
+        <view class="input-wrap">
+          <input
+            class="text-input"
+            type="digit"
+            value="{{form.rentMonthly}}"
+            data-field="rentMonthly"
+            bindinput="onNumberInput"
+          />
+          <text class="input-unit">元/月</text>
+        </view>
+      </view>
+      <view class="input-block">
+        <view class="field-label">押金</view>
+        <view class="input-wrap">
+          <input
+            class="text-input"
+            type="digit"
+            value="{{form.deposit}}"
+            data-field="deposit"
+            bindinput="onNumberInput"
+          />
+          <text class="input-unit">元</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="row-2col" style="margin-top: 20rpx">
+      <view class="input-block">
+        <view class="field-label">租期</view>
+        <view class="input-wrap">
+          <input
+            class="text-input"
+            type="digit"
+            value="{{form.rentMonths}}"
+            data-field="rentMonths"
+            bindinput="onNumberInput"
+          />
+          <text class="input-unit">个月</text>
+        </view>
+      </view>
+      <view class="input-block">
+        <view class="field-label">租车维修保养</view>
+        <view class="input-wrap">
+          <input
+            class="text-input"
+            type="digit"
+            value="{{form.rentMaintenance}}"
+            data-field="rentMaintenance"
+            bindinput="onNumberInput"
+          />
+          <text class="input-unit">元/月</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="switch-row" style="margin-top: 24rpx">
+      <text class="switch-label">租金含电池 / 换电</text>
+      <switch
+        checked="{{switches.rentIncludesSwap}}"
+        color="#3b82f6"
+        class="tiny-switch"
+        data-field="rentIncludesSwap"
+        bindchange="onToggle"
+      />
+    </view>
+
+    <block wx:if="{{switches.rentIncludesSwap}}">
+      <view class="field-label" style="margin-top: 20rpx">每月换电费用</view>
+      <view class="input-wrap">
+        <input
+          class="text-input"
+          type="digit"
+          value="{{form.rentSwapFee}}"
+          data-field="rentSwapFee"
+          bindinput="onNumberInput"
+        />
+        <text class="input-unit">元/月</text>
+      </view>
+      <view class="power-hint">换电已包含在租金里就填 0；需要额外付换电费就填实际金额。</view>
+    </block>
+    <view wx:else class="power-hint" style="margin-top: 16rpx">
+      租金不含电池 / 换电，能源费用按下面「使用情况」的电费或换电规则计算。
+    </view>
+
+    <view class="mini-stat-row">
+      <text class="mini-stat-label">租车月总成本</text>
+      <text class="mini-stat-value">{{summary.rentMonthly}}</text>
+    </view>
+    </block>
+    <block wx:else>
+    <view class="row-2col" style="margin-top: 24rpx">
+      <view class="input-block">
+        <view class="field-label">车价（不含电池）</view>
+        <view class="input-wrap">
+          <input
+            class="text-input"
+            type="digit"
+            value="{{form.vehiclePrice}}"
+            data-field="vehiclePrice"
+            bindinput="onNumberInput"
+          />
+          <text class="input-unit">元</text>
+        </view>
+      </view>
+      <view class="input-block">
+        <view class="field-label">电池价格</view>
+        <view class="input-wrap">
+          <input
+            class="text-input"
+            type="digit"
+            value="{{form.batteryPrice}}"
+            data-field="batteryPrice"
+            bindinput="onNumberInput"
+          />
+          <text class="input-unit">元</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="row-2col" style="margin-top: 20rpx">
+      <view class="input-block">
+        <view class="field-label">上牌 / 保险 / 杂费</view>
+        <view class="input-wrap">
+          <input
+            class="text-input"
+            type="digit"
+            value="{{form.oneTimeFee}}"
+            data-field="oneTimeFee"
+            bindinput="onNumberInput"
+          />
+          <text class="input-unit">元</text>
+        </view>
+      </view>
+      <view class="input-block">
+        <view class="field-label">月均维修保养</view>
+        <view class="input-wrap">
+          <input
+            class="text-input"
+            type="digit"
+            value="{{form.buyMaintenance}}"
+            data-field="buyMaintenance"
+            bindinput="onNumberInput"
+          />
+          <text class="input-unit">元/月</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="row-2col" style="margin-top: 20rpx">
+      <view class="input-block">
+        <view class="field-label">电池使用寿命</view>
+        <view class="input-wrap">
+          <input
+            class="text-input"
+            type="digit"
+            value="{{form.batteryLife}}"
+            data-field="batteryLife"
+            bindinput="onNumberInput"
+          />
+          <text class="input-unit">个月</text>
+        </view>
+      </view>
+      <view class="input-block">
+        <view class="field-label">持有期</view>
+        <view class="input-wrap">
+          <input
+            class="text-input"
+            type="digit"
+            value="{{form.holdMonths}}"
+            data-field="holdMonths"
+            bindinput="onNumberInput"
+          />
+          <text class="input-unit">个月</text>
+        </view>
+      </view>
+    </view>
+    <view class="power-hint">电池每满「电池使用寿命」个月追加一次电池价格；持有期决定残值折损终点。</view>
+
+    <view class="mini-stat-row">
+      <text class="mini-stat-label">买车月成本（电费 + 维修）</text>
+      <text class="mini-stat-value">{{summary.buyMonthly}}</text>
+    </view>
+    </block>
+  </view>
+
+  <!-- ===== 使用情况 ===== -->
+  <view class="card">
+    <view class="card-title">2. 使用情况</view>
+
+    <view class="field-label">跑单量统计方式</view>
+    <view class="seg">
+      <view
+        class="seg-item {{switches.kmMode === 'km' ? 'active' : ''}}"
+        data-field="kmMode"
+        data-value="km"
+        bindtap="onSelectMode"
+      >按每天公里数</view>
+      <view
+        class="seg-item {{switches.kmMode === 'orders' ? 'active' : ''}}"
+        data-field="kmMode"
+        data-value="orders"
+        bindtap="onSelectMode"
+      >按每天单量</view>
+    </view>
+
+    <block wx:if="{{switches.kmMode === 'km'}}">
+      <view class="field-label" style="margin-top: 20rpx">每天跑多少公里</view>
+      <view class="input-wrap">
+        <input
+          class="text-input"
+          type="digit"
+          value="{{form.dailyKm}}"
+          data-field="dailyKm"
+          bindinput="onNumberInput"
+        />
+        <text class="input-unit">km/天</text>
+      </view>
+    </block>
+    <block wx:else>
+      <view class="row-2col" style="margin-top: 20rpx">
+        <view class="input-block">
+          <view class="field-label">每天跑多少单</view>
+          <view class="input-wrap">
+            <input
+              class="text-input"
+              type="digit"
+              value="{{form.dailyOrders}}"
+              data-field="dailyOrders"
+              bindinput="onNumberInput"
+            />
+            <text class="input-unit">单/天</text>
+          </view>
+        </view>
+        <view class="input-block">
+          <view class="field-label">平均单距</view>
+          <view class="input-wrap">
+            <input
+              class="text-input"
+              type="digit"
+              value="{{form.avgOrderKm}}"
+              data-field="avgOrderKm"
+              bindinput="onNumberInput"
+            />
+            <text class="input-unit">km/单</text>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <view class="live-strip">
+      <view class="live-item">
+        <text class="live-label">每天跑</text>
+        <text class="live-value">{{summary.dailyKm}} km</text>
+      </view>
+      <view class="live-item">
+        <text class="live-label">每月跑</text>
+        <text class="live-value">{{summary.monthlyKm}} km</text>
+      </view>
+      <view class="live-item">
+        <text class="live-label">每月能源</text>
+        <text class="live-value">{{summary.energyMonthly}}</text>
+      </view>
+      <view class="live-item live-item-accent">
+        <text class="live-label">买车回本</text>
+        <text class="live-value">{{paybackText}}</text>
+      </view>
+    </view>
+
+    <view class="row-2col" style="margin-top: 20rpx">
+      <view class="input-block">
+        <view class="field-label">每月出勤天数</view>
+        <view class="input-wrap">
+          <input
+            class="text-input"
+            type="digit"
+            value="{{form.workDays}}"
+            data-field="workDays"
+            bindinput="onNumberInput"
+          />
+          <text class="input-unit">天</text>
+        </view>
+      </view>
+      <view class="input-block">
+        <view class="field-label">每单到手收入</view>
+        <view class="input-wrap">
+          <input
+            class="text-input"
+            type="digit"
+            placeholder="扣平台抽成后"
+            value="{{form.perOrderIncome}}"
+            data-field="perOrderIncome"
+            bindinput="onNumberInput"
+          />
+          <text class="input-unit">元/单</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="field-label" style="margin-top: 24rpx">能源方式</view>
+    <view class="seg">
+      <view
+        class="seg-item {{switches.energyMode === 'charge' ? 'active' : ''}}"
+        data-field="energyMode"
+        data-value="charge"
+        bindtap="onSelectMode"
+      >自己充电</view>
+      <view
+        class="seg-item {{switches.energyMode === 'swap' ? 'active' : ''}}"
+        data-field="energyMode"
+        data-value="swap"
+        bindtap="onSelectMode"
+      >外部换电</view>
+    </view>
+
+    <block wx:if="{{switches.energyMode === 'charge'}}">
+      <view class="row-2col" style="margin-top: 20rpx">
+        <view class="input-block">
+          <view class="field-label">电费单价</view>
+          <view class="input-wrap">
+            <input
+              class="text-input"
+              type="digit"
+              value="{{form.electricityPrice}}"
+              data-field="electricityPrice"
+              bindinput="onNumberInput"
+            />
+            <text class="input-unit">元/度</text>
+          </view>
+        </view>
+        <view class="input-block">
+          <view class="field-label">单公里电耗</view>
+          <view class="input-wrap">
+            <input
+              class="text-input"
+              type="digit"
+              value="{{form.whPerKm}}"
+              data-field="whPerKm"
+              bindinput="onNumberInput"
+            />
+            <text class="input-unit">Wh/km</text>
+          </view>
+        </view>
+      </view>
+      <view class="inline-link" bindtap="onImportFromRange">
+        从续航计算器带入电耗{{hasRangeData ? '' : '（暂无数据）'}}
+      </view>
+    </block>
+    <block wx:else>
+      <view class="row-2col" style="margin-top: 20rpx">
+        <view class="input-block">
+          <view class="field-label">单次换电价格</view>
+          <view class="input-wrap">
+            <input
+              class="text-input"
+              type="digit"
+              value="{{form.swapPrice}}"
+              data-field="swapPrice"
+              bindinput="onNumberInput"
+            />
+            <text class="input-unit">元/次</text>
+          </view>
+        </view>
+        <view class="input-block">
+          <view class="field-label">每天换电次数</view>
+          <view class="input-wrap">
+            <input
+              class="text-input"
+              type="digit"
+              value="{{form.swapsPerDay}}"
+              data-field="swapsPerDay"
+              bindinput="onNumberInput"
+            />
+            <text class="input-unit">次/天</text>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <block wx:if="{{breakeven}}">
+      <view class="breakeven">
+        <view class="breakeven-title">保本单量（按每单净收入 {{breakeven.perOrderIncome}} 元）</view>
+        <view class="breakeven-row">
+          <text>租车：每月至少 {{breakeven.rentOrders}} 单</text>
+          <text>买车：每月至少 {{breakeven.buyOrders}} 单</text>
+        </view>
+        <view class="breakeven-note">买车按持有期内月均折旧 + 电费 + 维修折算，未含押金与停运损失。</view>
+      </view>
+    </block>
+  </view>
+
+  <!-- ===== 残值设置 ===== -->
+  <view class="card">
+    <view class="card-title">3. 残值设置</view>
+    <view class="field-label">持有 {{summary.holdMonths}} 个月后，车价残值比例</view>
+    <view class="input-wrap">
+      <input
+        class="text-input"
+        type="digit"
+        value="{{form.residualPercent}}"
+        bindinput="onResidualInput"
+      />
+      <text class="input-unit">%</text>
+    </view>
+    <view class="power-hint">
+      残值只按车价折算、不含电池；比例越高，买车方案越划算。可在页面顶部快速切换保守 / 一般 / 乐观三档。
+    </view>
+    <view class="residual-preview">
+      <text class="residual-preview-label">持有期满残值</text>
+      <text class="residual-value">{{summary.residualAmount}}</text>
+    </view>
+  </view>
+
+  <!-- ===== 操作 ===== -->
+  <view class="actions">
+    <view class="action-btn primary" bindtap="generatePoster">生成海报并保存到相册</view>
+    <view class="action-btn ghost" bindtap="onReset">重置为默认值</view>
+  </view>
+
+  <view class="footnote">以上为按你填写数据的测算结果，仅供参考，以实际合同为准。</view>
+</view>

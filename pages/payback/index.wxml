@@ -6,6 +6,7 @@
     <view class="hero-eyebrow">骑士 · 租车 / 买车 回本测算</view>
     <view class="hero-headline">{{headline}}</view>
     <view class="hero-sub">{{heroSub}}</view>
+    <view wx:if="{{heroAlt}}" class="hero-alt">{{heroAlt}}</view>
 
     <view class="preset-row">
       <view
@@ -38,25 +39,49 @@
       </view>
     </view>
     <view class="card-note">
-      买车月成本只含电费与维修；每公里成本按 {{summary.holdMonths}} 个月累计支出与总里程折算。
+      这张表比的是「租车 / 买车谁的总花费更低」，和你的收入无关；上面的回本天数按跑单净收入计算。买车月成本只含电费与维修；每公里成本按 {{summary.holdMonths}} 个月累计支出与总里程折算。
     </view>
   </view>
 
   <!-- ===== 折线图 ===== -->
   <view class="card">
-    <view class="card-title">累计成本走势（0~36 个月）</view>
+    <view class="card-title">{{chartMode === 'income' ? '回本走势（0~36 个月）' : '累计成本走势（0~36 个月）'}}</view>
+    <view class="seg">
+      <view
+        class="seg-item {{chartMode === 'income' ? 'active' : ''}}"
+        data-value="income"
+        bindtap="onSelectChartMode"
+      >回本走势</view>
+      <view
+        class="seg-item {{chartMode === 'cost' ? 'active' : ''}}"
+        data-value="cost"
+        bindtap="onSelectChartMode"
+      >成本对比</view>
+    </view>
     <view class="legend">
-      <view class="legend-item">
-        <view class="legend-dot dot-rent"></view>
-        <text>租车累计</text>
-      </view>
-      <view class="legend-item">
-        <view class="legend-dot dot-buy"></view>
-        <text>买车累计（扣残值）</text>
-      </view>
+      <block wx:if="{{chartMode === 'income'}}">
+        <view class="legend-item">
+          <view class="legend-dot dot-buy"></view>
+          <text>累计净赚</text>
+        </view>
+        <view class="legend-item">
+          <view class="legend-dot dot-rent"></view>
+          <text>买车投入</text>
+        </view>
+      </block>
+      <block wx:else>
+        <view class="legend-item">
+          <view class="legend-dot dot-rent"></view>
+          <text>租车累计</text>
+        </view>
+        <view class="legend-item">
+          <view class="legend-dot dot-buy"></view>
+          <text>买车累计（扣残值）</text>
+        </view>
+      </block>
     </view>
     <canvas type="2d" id="lineChart" class="chart"></canvas>
-    <view class="chart-note">纵轴：累计支出（元） · 横轴：月份</view>
+    <view class="chart-note">{{chartMode === 'income' ? '纵轴：累计净赚（元） · 横轴：月份 · 曲线碰到投入线就是回本' : '纵轴：累计支出（元） · 横轴：月份'}}</view>
   </view>
 
   <!-- ===== 容易漏算的钱 ===== -->
@@ -292,7 +317,7 @@
   <view class="card">
     <view class="card-title">2. 使用情况</view>
 
-    <view class="field-label">跑单量统计方式</view>
+    <view class="field-label">里程按什么算</view>
     <view class="seg">
       <view
         class="seg-item {{switches.kmMode === 'km' ? 'active' : ''}}"
@@ -307,18 +332,36 @@
         bindtap="onSelectMode"
       >按每天单量</view>
     </view>
+    <view class="mode-note">{{summary.modeNote}}</view>
 
     <block wx:if="{{switches.kmMode === 'km'}}">
-      <view class="field-label" style="margin-top: 20rpx">每天跑多少公里</view>
-      <view class="input-wrap">
-        <input
-          class="text-input"
-          type="digit"
-          value="{{form.dailyKm}}"
-          data-field="dailyKm"
-          bindinput="onNumberInput"
-        />
-        <text class="input-unit">km/天</text>
+      <view class="row-2col" style="margin-top: 20rpx">
+        <view class="input-block">
+          <view class="field-label">每天跑多少公里</view>
+          <view class="input-wrap">
+            <input
+              class="text-input"
+              type="digit"
+              value="{{form.dailyKm}}"
+              data-field="dailyKm"
+              bindinput="onNumberInput"
+            />
+            <text class="input-unit">km/天</text>
+          </view>
+        </view>
+        <view class="input-block">
+          <view class="field-label">平均单距</view>
+          <view class="input-wrap">
+            <input
+              class="text-input"
+              type="digit"
+              value="{{form.avgOrderKm}}"
+              data-field="avgOrderKm"
+              bindinput="onNumberInput"
+            />
+            <text class="input-unit">km/单</text>
+          </view>
+        </view>
       </view>
     </block>
     <block wx:else>
@@ -352,6 +395,29 @@
       </view>
     </block>
 
+    <view class="live-strip">
+      <view class="live-item">
+        <text class="live-label">每天里程</text>
+        <text class="live-value">{{summary.dailyKm}} km</text>
+      </view>
+      <view class="live-item">
+        <text class="live-label">每月里程</text>
+        <text class="live-value">{{summary.monthlyKm}} km</text>
+      </view>
+      <view class="live-item">
+        <text class="live-label">折算单量</text>
+        <text class="live-value">{{summary.ordersPerDay}} 单/天</text>
+      </view>
+      <view class="live-item">
+        <text class="live-label">每月能源</text>
+        <text class="live-value">{{summary.energyMonthly}}</text>
+      </view>
+      <view class="live-item live-item-accent">
+        <text class="live-label">买车回本</text>
+        <text class="live-value">{{paybackText}}</text>
+      </view>
+    </view>
+
     <view class="row-2col" style="margin-top: 20rpx">
       <view class="input-block">
         <view class="field-label">每月出勤天数</view>
@@ -367,12 +433,12 @@
         </view>
       </view>
       <view class="input-block">
-        <view class="field-label">每单净收入（选填）</view>
+        <view class="field-label">每单到手收入</view>
         <view class="input-wrap">
           <input
             class="text-input"
             type="digit"
-            placeholder="填了才显示保本单量"
+            placeholder="扣平台抽成后"
             value="{{form.perOrderIncome}}"
             data-field="perOrderIncome"
             bindinput="onNumberInput"
@@ -432,48 +498,71 @@
       </view>
     </block>
     <block wx:else>
-      <view class="row-2col" style="margin-top: 20rpx">
-        <view class="input-block">
-          <view class="field-label">单次换电价格</view>
-          <view class="input-wrap">
-            <input
-              class="text-input"
-              type="digit"
-              value="{{form.swapPrice}}"
-              data-field="swapPrice"
-              bindinput="onNumberInput"
-            />
-            <text class="input-unit">元/次</text>
-          </view>
-        </view>
-        <view class="input-block">
-          <view class="field-label">每天换电次数</view>
-          <view class="input-wrap">
-            <input
-              class="text-input"
-              type="digit"
-              value="{{form.swapsPerDay}}"
-              data-field="swapsPerDay"
-              bindinput="onNumberInput"
-            />
-            <text class="input-unit">次/天</text>
-          </view>
-        </view>
+      <view class="field-label" style="margin-top: 20rpx">换电怎么收费</view>
+      <view class="seg">
+        <view
+          class="seg-item {{switches.swapMode === 'monthly' ? 'active' : ''}}"
+          data-field="swapMode"
+          data-value="monthly"
+          bindtap="onSelectMode"
+        >月包（包月）</view>
+        <view
+          class="seg-item {{switches.swapMode === 'perUse' ? 'active' : ''}}"
+          data-field="swapMode"
+          data-value="perUse"
+          bindtap="onSelectMode"
+        >按次付费</view>
       </view>
-    </block>
 
-    <view class="mini-stat-row">
-      <text class="mini-stat-label">每月里程</text>
-      <text class="mini-stat-value">{{summary.monthlyKm}} km</text>
-    </view>
-    <view class="mini-stat-row" style="margin-top: 12rpx">
-      <text class="mini-stat-label">每月能源成本</text>
-      <text class="mini-stat-value">{{summary.energyMonthly}}</text>
-    </view>
+      <block wx:if="{{switches.swapMode === 'monthly'}}">
+        <view class="field-label" style="margin-top: 20rpx">月包价格</view>
+        <view class="input-wrap">
+          <input
+            class="text-input"
+            type="digit"
+            value="{{form.swapMonthly}}"
+            data-field="swapMonthly"
+            bindinput="onNumberInput"
+          />
+          <text class="input-unit">元/月</text>
+        </view>
+        <view class="power-hint">包月不限换电次数，月成本固定，跑得多更划算。</view>
+      </block>
+      <block wx:else>
+        <view class="row-2col" style="margin-top: 20rpx">
+          <view class="input-block">
+            <view class="field-label">单次换电价格</view>
+            <view class="input-wrap">
+              <input
+                class="text-input"
+                type="digit"
+                value="{{form.swapPrice}}"
+                data-field="swapPrice"
+                bindinput="onNumberInput"
+              />
+              <text class="input-unit">元/次</text>
+            </view>
+          </view>
+          <view class="input-block">
+            <view class="field-label">每天换电次数</view>
+            <view class="input-wrap">
+              <input
+                class="text-input"
+                type="digit"
+                value="{{form.swapsPerDay}}"
+                data-field="swapsPerDay"
+                bindinput="onNumberInput"
+              />
+              <text class="input-unit">次/天</text>
+            </view>
+          </view>
+        </view>
+      </block>
+    </block>
 
     <block wx:if="{{breakeven}}">
       <view class="breakeven">
-        <view class="breakeven-title">保本单量（按每单净收入 {{breakeven.perOrderIncome}} 元）</view>
+        <view class="breakeven-title">保本单量（按每单到手收入 {{breakeven.perOrderIncome}} 元）</view>
         <view class="breakeven-row">
           <text>租车：每月至少 {{breakeven.rentOrders}} 单</text>
           <text>买车：每月至少 {{breakeven.buyOrders}} 单</text>

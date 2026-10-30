@@ -110,6 +110,17 @@
   color: #64748b;
 }
 
+/* 原生模板广告容器：不设固定高度，由广告组件自己撑开 */
+.ad-wrap {
+  margin-top: 30rpx;
+  border-radius: 20rpx;
+  overflow: hidden;
+}
+
+.quiz-ad {
+  margin-top: 40rpx;
+}
+
 /* ---------- 答题 ---------- */
 
 .quiz-head {

@@ -27,7 +27,7 @@ const DEFAULTS = {
   holdMonths: 24, // 持有期（月）
 
   // 使用情况
-  kmMode: "km", // km: 按每天公里数；orders: 按每天单量 × 平均单距
+  kmMode: "orders", // km: 按每天公里数；orders: 按每天单量 × 平均单距
   dailyKm: 100, // 每天跑多少公里
   dailyOrders: 30, // 每天多少单
   avgOrderKm: 3.3, // 平均单距（km）
@@ -35,9 +35,11 @@ const DEFAULTS = {
   electricityPrice: 1.0, // 电费单价（元/度）
   whPerKm: 11, // 单公里电耗（Wh/km）
   energyMode: "charge", // charge: 自己充电；swap: 外部换电
+  swapMode: "monthly", // monthly: 换电月包；perUse: 按次付费
+  swapMonthly: 200, // 换电月包价格（元/月）
   swapPrice: 5, // 单次换电价格（元）
   swapsPerDay: 1, // 每天换电次数
-  perOrderIncome: 0, // 每单净收入（元），> 0 时才展示保本单量
+  perOrderIncome: 5, // 每单到手收入（元/单），扣平台抽成后、未扣电费维修
 
   // 残值
   residualPreset: "normal", // conservative / normal / optimistic / custom
@@ -65,6 +67,7 @@ const LIMITS = {
   workDays: [0, 31],
   electricityPrice: [0, 20],
   whPerKm: [0, 200],
+  swapMonthly: [0, 5000],
   swapPrice: [0, 200],
   swapsPerDay: [0, 50],
   perOrderIncome: [0, 1000],
@@ -133,6 +136,8 @@ function normalize(input) {
     electricityPrice: clampNumber(src.electricityPrice, "electricityPrice"),
     whPerKm: clampNumber(src.whPerKm, "whPerKm"),
     energyMode: src.energyMode === "swap" ? "swap" : "charge",
+    swapMode: src.swapMode === "perUse" ? "perUse" : "monthly",
+    swapMonthly: clampNumber(src.swapMonthly, "swapMonthly"),
     swapPrice: clampNumber(src.swapPrice, "swapPrice"),
     swapsPerDay: clampNumber(src.swapsPerDay, "swapsPerDay"),
     perOrderIncome: clampNumber(src.perOrderIncome, "perOrderIncome"),
@@ -146,10 +151,13 @@ function normalize(input) {
 
 // 月能源成本（元/月）
 // 充电：日公里 × Wh/km ÷ 1000 × 电价 × 出勤天数
-// 换电：单次价格 × 每天次数 × 出勤天数
+// 换电月包：固定月费
+// 换电按次：单次价格 × 每天次数 × 出勤天数
 function calcMonthlyEnergy(p, dailyKm) {
   if (p.energyMode === "swap") {
-    return p.swapPrice * p.swapsPerDay * p.workDays;
+    return p.swapMode === "monthly"
+      ? p.swapMonthly
+      : p.swapPrice * p.swapsPerDay * p.workDays;
   }
   return (dailyKm * p.whPerKm) / 1000 * p.electricityPrice * p.workDays;
 }
@@ -267,6 +275,27 @@ function calc(input) {
     };
   }
 
+  // 9. 收入口径回本：买车投入 ÷ 每月净赚（跑单收入 − 能源 − 维修）
+  //    单量在「按每天公里数」模式下用 里程 ÷ 平均单距 反推
+  const ordersPerDay =
+    p.kmMode === "orders"
+      ? p.dailyOrders
+      : p.avgOrderKm > 0
+        ? dailyKm / p.avgOrderKm
+        : 0;
+  const monthlyIncome = ordersPerDay * p.perOrderIncome * p.workDays;
+  const monthlyNetIncome = monthlyIncome - energyMonthly - p.buyMaintenance;
+  const incomePaybackMonths =
+    monthlyNetIncome > 0 ? initialCost / monthlyNetIncome : null;
+  const income = {
+    ordersPerDay: round(ordersPerDay, 1),
+    monthlyIncome: round(monthlyIncome, 2),
+    monthlyNetIncome: round(monthlyNetIncome, 2),
+    paybackMonths: incomePaybackMonths === null ? null : round(incomePaybackMonths, 2),
+    paybackDays:
+      incomePaybackMonths === null ? null : round(incomePaybackMonths * 30.4, 1),
+  };
+
   return {
     params: p,
     dailyKm: round(dailyKm, 2),
@@ -296,6 +325,7 @@ function calc(input) {
     curve,
     depositLocked: round(p.deposit, 2),
     breakeven,
+    income,
   };
 }
 

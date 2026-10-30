@@ -64,6 +64,17 @@
   color: #cbd5e1;
 }
 
+.hero-alt {
+  position: relative;
+  margin-top: 10rpx;
+  padding: 10rpx 16rpx;
+  border-radius: 12rpx;
+  background: rgba(148, 163, 184, 0.18);
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: #e2e8f0;
+}
+
 .preset-row {
   position: relative;
   display: flex;
@@ -341,6 +352,47 @@
   color: #374151;
 }
 
+/* 输入框下方的即时换算结果 */
+.live-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-top: 18rpx;
+}
+
+.live-item {
+  width: 49%;
+  box-sizing: border-box;
+  margin-bottom: 12rpx;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 14rpx;
+  padding: 14rpx 18rpx;
+}
+
+.live-item-accent {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.live-label {
+  display: block;
+  font-size: 20rpx;
+  color: #6b7280;
+}
+
+.live-value {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.live-item-accent .live-value {
+  color: #2563eb;
+}
+
 /* ================= 分段选择 ================= */
 .seg {
   display: flex;
@@ -359,10 +411,21 @@
 }
 
 .seg-item.active {
-  background: #ffffff;
-  color: #1d4ed8;
+  background: #2563eb;
+  color: #ffffff;
   font-weight: 700;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4rpx 12rpx rgba(37, 99, 235, 0.28);
+}
+
+.mode-note {
+  margin-top: 14rpx;
+  padding: 12rpx 18rpx;
+  border-radius: 12rpx;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: #1d4ed8;
 }
 
 .inline-link {

@@ -34,8 +34,9 @@ function defaultForm() {
     electricityPrice: String(DEFAULTS.electricityPrice),
     whPerKm: String(DEFAULTS.whPerKm),
     swapPrice: String(DEFAULTS.swapPrice),
+    swapMonthly: String(DEFAULTS.swapMonthly),
     swapsPerDay: String(DEFAULTS.swapsPerDay),
-    perOrderIncome: "",
+    perOrderIncome: String(DEFAULTS.perOrderIncome),
     residualPercent: String(DEFAULTS.residualPercent),
   };
 }
@@ -45,6 +46,7 @@ function defaultSwitches() {
     rentIncludesSwap: DEFAULTS.rentIncludesSwap,
     kmMode: DEFAULTS.kmMode,
     energyMode: DEFAULTS.energyMode,
+    swapMode: DEFAULTS.swapMode,
   };
 }
 
@@ -61,9 +63,20 @@ function money2(value) {
   return "¥" + (Number.isFinite(num) ? num : 0).toFixed(2);
 }
 
-function num1(value) {
+// 整数就不带小数点：30 而不是 30.0
+function numText(value) {
   const num = Number(value);
-  return (Number.isFinite(num) ? num : 0).toFixed(1);
+  if (!Number.isFinite(num)) return "0";
+  return Number.isInteger(num) ? String(num) : String(Math.round(num * 10) / 10);
+}
+
+// 收入口径回本：不到 1 个月显示天数，1~24 个月显示月，更久显示年
+function incomePaybackText(inc) {
+  if (!inc || inc.paybackMonths === null || inc.paybackMonths <= 0) return "";
+  const months = inc.paybackMonths;
+  if (months < 1) return `约 ${Math.max(1, Math.ceil(inc.paybackDays))} 天`;
+  if (months < 24) return `约 ${Math.round(months)} 个月`;
+  return `约 ${(months / 12).toFixed(1)} 年`;
 }
 
 function formatAxis(value) {
@@ -144,6 +157,9 @@ Page({
 
     headline: "买车 -- 个月后回本",
     heroSub: "填写下方数据，实时测算",
+    heroAlt: "",
+    paybackText: "--",
+    chartMode: "income",
     compareRows: [],
     curve: [],
     paybackMonth: null,
@@ -158,6 +174,8 @@ Page({
     summary: {
       dailyKm: "0",
       monthlyKm: "0",
+      ordersPerDay: "0",
+      modeNote: "",
       energyMonthly: "¥0",
       rentMonthly: "¥0",
       buyMonthly: "¥0",
@@ -200,13 +218,11 @@ Page({
   },
 
   buildShareTitle() {
-    const res = this._last;
-    if (res && res.paybackMonth) {
-      return `我买车 ${res.paybackMonth} 个月回本，比租车省 ${money(
-        res.savingsAtHold,
-      )}，你算过吗？`;
+    const text = this.data.paybackText;
+    if (text && text !== "--") {
+      return `我买车${text}就回本，你算过吗？`;
     }
-    return "我算了 60 个月，租车更划算，你算过吗？";
+    return "算了 60 个月，租车更划算，你算过吗？";
   },
 
   setupSafeArea() {
@@ -256,6 +272,8 @@ Page({
       electricityPrice: f.electricityPrice,
       whPerKm: f.whPerKm,
       energyMode: s.energyMode,
+      swapMode: s.swapMode,
+      swapMonthly: f.swapMonthly,
       swapPrice: f.swapPrice,
       swapsPerDay: f.swapsPerDay,
       perOrderIncome: f.perOrderIncome,
@@ -291,6 +309,13 @@ Page({
     const { field, value } = e.currentTarget.dataset;
     if (!field || !value) return;
     this.setData({ ["switches." + field]: value }, () => this.refresh());
+  },
+
+  // 走势图切换：收入口径 / 成本对比
+  onSelectChartMode(e) {
+    const value = e.currentTarget.dataset.value;
+    if (!value || value === this.data.chartMode) return;
+    this.setData({ chartMode: value }, () => this.drawChart());
   },
 
   // 租车 / 买车方案切换
@@ -372,18 +397,37 @@ Page({
 
     let headline;
     let heroSub;
-    if (payback) {
-      headline = `买车 ${payback} 个月后回本`;
-      heroSub =
-        savings >= 0
-          ? `按你填的数据测算，跑满 ${hold} 个月，买车比租车省约 ${money(savings)}`
-          : `按你填的数据测算，跑满 ${hold} 个月，买车比租车多花约 ${money(-savings)}`;
+    let heroAlt;
+    const inc = res.income;
+    const incomeText = incomePaybackText(inc);
+
+    if (incomeText) {
+      // 主结论：多久能把买车的钱挣回来
+      // 单量模式直接说单量；公里模式把「里程 ÷ 单距」的折算过程写出来，避免黑箱
+      const orderSource =
+        params.kmMode === "km"
+          ? `每天 ${numText(res.dailyKm)} km ÷ ${numText(
+              params.avgOrderKm,
+            )} km/单 ≈ ${numText(inc.ordersPerDay)} 单`
+          : `每天 ${numText(inc.ordersPerDay)} 单`;
+      headline = `买车${incomeText}回本`;
+      heroSub = `${orderSource} × 每单 ${numText(
+        params.perOrderIncome,
+      )} 元 × ${params.workDays} 天，月净赚 ${money(inc.monthlyNetIncome)}`;
+      heroAlt = payback
+        ? `另一种算法：买车第 ${payback} 个月起，累计花费低于租车`
+        : "另一种算法：60 个月内租车累计花费更低";
     } else {
-      headline = "60 个月内租车更划算";
+      headline = payback
+        ? `买车 ${payback} 个月后比租车划算`
+        : "60 个月内租车更划算";
       heroSub =
-        savings >= 0
-          ? `按你填的数据测算，跑满 ${hold} 个月，买车比租车省约 ${money(savings)}`
-          : `按你填的数据测算，跑满 ${hold} 个月，租车比买车省约 ${money(-savings)}`;
+        params.perOrderIncome > 0
+          ? "把「平均单距」填上（大于 0），才能把公里折算成单量"
+          : "填一下「每单到手收入」，就能算出多久挣回买车的钱";
+      heroAlt = `跑满 ${hold} 个月，买车比租车${
+        savings >= 0 ? "省" : "多花"
+      }约 ${money(Math.abs(savings))}`;
     }
 
     const compareRows = [
@@ -417,6 +461,8 @@ Page({
       {
         headline,
         heroSub,
+        heroAlt,
+        paybackText: incomeText || "--",
         residualPercentValue: params.residualPercent,
         compareRows,
         curve: res.curve,
@@ -430,8 +476,17 @@ Page({
         },
         breakeven: res.breakeven,
         summary: {
-          dailyKm: num1(res.dailyKm),
-          monthlyKm: num1(res.monthlyKm),
+          dailyKm: numText(res.dailyKm),
+          monthlyKm: numText(res.monthlyKm),
+          ordersPerDay: numText(inc.ordersPerDay),
+          modeNote:
+            params.kmMode === "km"
+              ? `按里程算：每天 ${numText(res.dailyKm)} km ÷ ${numText(
+                  params.avgOrderKm,
+                )} km/单 ≈ ${numText(inc.ordersPerDay)} 单`
+              : `按单量算：每天 ${numText(inc.ordersPerDay)} 单 × ${numText(
+                  params.avgOrderKm,
+                )} km/单 ≈ ${numText(res.dailyKm)} km`,
           energyMonthly: money(res.energyMonthly),
           rentMonthly: money(res.rent.monthly),
           buyMonthly: money(res.buy.monthly),
@@ -506,8 +561,13 @@ Page({
   },
 
   drawChart() {
+    if (!this._chart) return;
+    if (this.data.chartMode === "income") this.drawIncomeChart();
+    else this.drawCostChart();
+  },
+
+  drawCostChart() {
     const chart = this._chart;
-    if (!chart) return;
     const ctx = chart.ctx;
     const width = chart.width;
     const height = chart.height;
@@ -603,8 +663,133 @@ Page({
         ctx.font = "bold 10px sans-serif";
         ctx.textAlign = x > width - 60 ? "right" : "left";
         ctx.textBaseline = "bottom";
-        ctx.fillText(`回本 ${payback} 个月`, x + (x > width - 60 ? -6 : 6), y - 6);
+        ctx.fillText(`第 ${payback} 个月起更省`, x + (x > width - 60 ? -6 : 6), y - 6);
       }
+    }
+  },
+
+  // 收入口径：累计净赚爬到「买车投入」线的那一点就是回本
+  drawIncomeChart() {
+    const chart = this._chart;
+    const res = this._last;
+    if (!chart || !res) return;
+    const ctx = chart.ctx;
+    const width = chart.width;
+    const height = chart.height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    const monthlyNet = res.income ? res.income.monthlyNetIncome : 0;
+    if (!(monthlyNet > 0)) {
+      ctx.fillStyle = "#9ca3af";
+      ctx.font = "12px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("填「每单到手收入」后显示回本走势", width / 2, height / 2);
+      return;
+    }
+
+    const target = res.buy.initial;
+    const payback = res.income.paybackMonths;
+    const padL = 46;
+    const padR = 14;
+    const padT = 18;
+    const padB = 26;
+    const plotW = width - padL - padR;
+    const plotH = height - padT - padB;
+    // 横轴只画到回本点的 1.6 倍左右，否则回本点会挤在左下角
+    const maxMonth = Math.min(
+      CHART_MONTHS,
+      Math.max(6, Math.ceil((payback || 6) * 1.6)),
+    );
+    const tickStep = maxMonth <= 6 ? 1 : maxMonth <= 15 ? 3 : 6;
+
+    let maxValue = Math.max(monthlyNet * maxMonth, target);
+    if (maxValue <= 0) maxValue = 100;
+    const step = niceStep(maxValue / 4);
+    const yMax = Math.ceil(maxValue / step) * step;
+
+    const xOf = (month) => padL + (month / maxMonth) * plotW;
+    const yOf = (value) => padT + plotH * (1 - value / yMax);
+
+    // 横向网格 + 纵轴刻度
+    ctx.font = "10px sans-serif";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    for (let v = 0; v <= yMax + 0.001; v += step) {
+      const y = yOf(v);
+      ctx.strokeStyle = "#eef2f7";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(padL + plotW, y);
+      ctx.stroke();
+      ctx.fillStyle = "#9ca3af";
+      ctx.fillText(formatAxis(v), padL - 6, y);
+    }
+
+    // 横轴刻度
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "#9ca3af";
+    for (let m = 0; m <= maxMonth; m += tickStep) {
+      ctx.fillText(String(m), xOf(m), padT + plotH + 8);
+    }
+
+    // 买车投入线
+    const targetY = yOf(target);
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = "#f59e0b";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(padL, targetY);
+    ctx.lineTo(padL + plotW, targetY);
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = "#d97706";
+    ctx.font = "9px sans-serif";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(`买车投入 ${money(target)}`, padL + plotW, targetY - 3);
+
+    // 累计净赚
+    ctx.beginPath();
+    for (let m = 0; m <= maxMonth; m += 1) {
+      const x = xOf(m);
+      const y = yOf(monthlyNet * m);
+      if (m === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = "#2563eb";
+    ctx.lineWidth = 2;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.stroke();
+
+    // 回本点
+    if (payback !== null && payback <= maxMonth) {
+      const x = xOf(payback);
+      ctx.save();
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = "#2563eb";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, targetY);
+      ctx.lineTo(x, padT + plotH);
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.fillStyle = "#2563eb";
+      ctx.arc(x, targetY, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#1d4ed8";
+      ctx.font = "bold 10px sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(`${this.data.paybackText}回本`, x + 6, targetY + 6);
     }
   },
 
@@ -691,7 +876,7 @@ Page({
       { label: "买车月成本", value: money(res.buy.monthly) },
       {
         label: "回本时间",
-        value: res.paybackMonth ? `${res.paybackMonth} 个月` : "60 个月内不回本",
+        value: this.data.paybackText !== "--" ? this.data.paybackText : "未填收入",
       },
     ];
     stats.forEach((stat, index) => {
@@ -704,18 +889,37 @@ Page({
       ctx.fillText(stat.value, x, 466);
     });
 
-    // 曲线图
+    // 曲线图：有收入数据时画「累计净赚 vs 买车投入」，否则画租买成本对比
+    const income = res.income;
+    const useIncome = !!(
+      income &&
+      income.paybackMonths !== null &&
+      income.monthlyNetIncome > 0
+    );
+
     ctx.fillStyle = "#334155";
     ctx.font = "bold 26px sans-serif";
-    ctx.fillText("累计成本走势（0~36 个月）", 48, 596);
+    ctx.fillText(
+      useIncome
+        ? "多久挣回买车钱（累计净赚）"
+        : "租车 / 买车累计成本（对比口径）",
+      48,
+      596,
+    );
 
     // 图例
-    const legend = [
-      { color: "#f59e0b", text: "租车" },
-      { color: "#3b82f6", text: "买车" },
-    ];
+    const legend = useIncome
+      ? [
+          { color: "#2563eb", text: "累计净赚" },
+          { color: "#f59e0b", text: "买车投入" },
+        ]
+      : [
+          { color: "#f59e0b", text: "租车" },
+          { color: "#3b82f6", text: "买车" },
+        ];
+    const legendX = useIncome ? [404, 560] : [452, 552];
     legend.forEach((item, index) => {
-      const x = 452 + index * 100;
+      const x = legendX[index];
       ctx.beginPath();
       ctx.fillStyle = item.color;
       ctx.arc(x, 588, 7, 0, Math.PI * 2);
@@ -730,15 +934,30 @@ Page({
     const plotBottom = plot.y + plot.h;
 
     const curve = this.data.curve || [];
-    let maxValue = 0;
-    curve.forEach((point) => {
-      maxValue = Math.max(maxValue, point.rent, point.buy);
-    });
+    const target = res.buy.initial;
+    // 收入口径时横轴只画到回本点的 1.6 倍左右，回本点才不会挤在左下角
+    const axisMonths = useIncome
+      ? Math.min(
+          CHART_MONTHS,
+          Math.max(6, Math.ceil((income.paybackMonths || 6) * 1.6)),
+        )
+      : CHART_MONTHS;
+    const axisStep = axisMonths <= 6 ? 1 : axisMonths <= 15 ? 3 : 6;
+
+    let maxValue;
+    if (useIncome) {
+      maxValue = Math.max(income.monthlyNetIncome * axisMonths, target);
+    } else {
+      maxValue = 0;
+      curve.forEach((point) => {
+        maxValue = Math.max(maxValue, point.rent, point.buy);
+      });
+    }
     if (maxValue <= 0) maxValue = 100;
     const yStep = niceStep(maxValue / 4);
     const yMax = Math.ceil(maxValue / yStep) * yStep;
 
-    const xOf = (month) => plot.x + (month / CHART_MONTHS) * plot.w;
+    const xOf = (month) => plot.x + (month / axisMonths) * plot.w;
     const yOf = (value) => plotBottom - (value / yMax) * plot.h;
 
     // 横向网格 + 纵轴刻度
@@ -773,7 +992,7 @@ Page({
     // 横轴刻度与刻度线
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    for (let m = 0; m <= CHART_MONTHS; m += 6) {
+    for (let m = 0; m <= axisMonths; m += axisStep) {
       const x = xOf(m);
       ctx.strokeStyle = "#cbd5e1";
       ctx.lineWidth = 1.5;
@@ -785,42 +1004,105 @@ Page({
       ctx.fillText(String(m), x, plotBottom + 12);
     }
 
-    const drawPosterLine = (key, color) => {
+    if (useIncome) {
+      // 买车投入线
+      const targetY = yOf(target);
+      ctx.save();
+      ctx.setLineDash([10, 6]);
+      ctx.strokeStyle = "#f59e0b";
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      curve.forEach((point, index) => {
-        const x = xOf(point.month);
-        const y = yOf(point[key]);
-        if (index === 0) ctx.moveTo(x, y);
+      ctx.moveTo(plot.x, targetY);
+      ctx.lineTo(plot.x + plot.w, targetY);
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = "#d97706";
+      ctx.font = "18px sans-serif";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(`买车投入 ${money(target)}`, plot.x + plot.w, targetY - 6);
+
+      // 累计净赚
+      ctx.beginPath();
+      for (let m = 0; m <= axisMonths; m += 1) {
+        const x = xOf(m);
+        const y = yOf(income.monthlyNetIncome * m);
+        if (m === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
-      });
-      ctx.strokeStyle = color;
+      }
+      ctx.strokeStyle = "#2563eb";
       ctx.lineWidth = 3;
       ctx.lineJoin = "round";
       ctx.stroke();
-    };
-    drawPosterLine("rent", "#f59e0b");
-    drawPosterLine("buy", "#3b82f6");
 
-    const payback = this.data.paybackMonth;
-    if (payback && payback <= CHART_MONTHS) {
-      const point = curve[payback];
-      if (point) {
-        const x = xOf(payback);
-        const y = yOf(point.buy);
+      // 回本点
+      const pb = income.paybackMonths;
+      if (pb <= CHART_MONTHS) {
+        const x = xOf(pb);
+        ctx.save();
+        ctx.setLineDash([6, 6]);
+        ctx.strokeStyle = "#2563eb";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, targetY);
+        ctx.lineTo(x, plotBottom);
+        ctx.stroke();
+        ctx.restore();
+
         ctx.beginPath();
         ctx.fillStyle = "#2563eb";
-        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.arc(x, targetY, 6, 0, Math.PI * 2);
         ctx.fill();
+
         ctx.fillStyle = "#1d4ed8";
         ctx.font = "bold 20px sans-serif";
-        ctx.textAlign = x > plot.x + plot.w - 90 ? "right" : "left";
-        ctx.textBaseline = "alphabetic";
+        ctx.textAlign = pb > 30 ? "right" : "left";
+        ctx.textBaseline = "top";
         ctx.fillText(
-          `回本 ${payback} 个月`,
-          x + (x > plot.x + plot.w - 90 ? -8 : 8),
-          y - 12,
+          `${this.data.paybackText}回本`,
+          x + (pb > 30 ? -10 : 10),
+          targetY + 10,
         );
         ctx.textAlign = "left";
+      }
+    } else {
+      const drawPosterLine = (key, color) => {
+        ctx.beginPath();
+        curve.forEach((point, index) => {
+          const x = xOf(point.month);
+          const y = yOf(point[key]);
+          if (index === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.lineJoin = "round";
+        ctx.stroke();
+      };
+      drawPosterLine("rent", "#f59e0b");
+      drawPosterLine("buy", "#3b82f6");
+
+      const payback = this.data.paybackMonth;
+      if (payback && payback <= CHART_MONTHS) {
+        const point = curve[payback];
+        if (point) {
+          const x = xOf(payback);
+          const y = yOf(point.buy);
+          ctx.beginPath();
+          ctx.fillStyle = "#2563eb";
+          ctx.arc(x, y, 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#1d4ed8";
+          ctx.font = "bold 20px sans-serif";
+          ctx.textAlign = x > plot.x + plot.w - 90 ? "right" : "left";
+          ctx.textBaseline = "alphabetic";
+          ctx.fillText(
+            `第 ${payback} 个月起更省`,
+            x + (x > plot.x + plot.w - 90 ? -8 : 8),
+            y - 12,
+          );
+          ctx.textAlign = "left";
+        }
       }
     }
 

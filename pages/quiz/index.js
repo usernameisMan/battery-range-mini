@@ -309,6 +309,20 @@ Page({
     this.start();
   },
 
+  // ---------- 原生模板广告事件 ----------
+
+  adLoad() {
+    console.log("原生模板广告加载成功");
+  },
+
+  adError(err) {
+    console.error("原生模板广告加载失败", err);
+  },
+
+  adClose() {
+    console.log("原生模板广告关闭");
+  },
+
   // ---------- 结果页雷达图 ----------
 
   initRadar() {
