@@ -1,10 +1,11 @@
 # battery-range-mini
 
-外卖骑手电动车工具小程序（原生小程序，无需框架）。
+电动车续航工具小程序（原生小程序，无需框架）。
 
 - **计算器**：按电池 / 电机 / 载重 / 气温 / 路况估算真实续航与百公里电耗
 - **续航地图**：在地图上看"当前电量能跑多远"，选目的地判断"能不能到、到哪里为止"，不够时推荐沿途补电点
 - **计算租买回本**：租车 / 买车方案的回本月数、每公里成本、对比曲线
+- **骑士性格**：12 道情景题测 6 个维度，出六维雷达图与角色海报（娱乐向）
 
 ## 目录结构
 
@@ -16,10 +17,12 @@ utils/planner.js           补电推荐：候选采集、过滤、评分、多�
 utils/qqmap.js             腾讯位置服务 WebService 封装：并发 3、失败重试 1 次、TTL 缓存、sig 签名、错误码翻译
 utils/md5.js               纯 JS MD5，用于计算 WebService 的 sig
 utils/rentbuy.js           回本计算
+utils/quiz.js              骑士性格测试：维度、题库、评分与角色映射（纯函数）
 utils/serviceTip.js        客服联系提示（每个版本首次进入弹一次）
 pages/index/               续航计算器
 pages/rangeMap/            续航地图（wxml / wxss / js / json）
 pages/payback/             回本与租买计算器
+pages/quiz/                骑士性格测试（引导 / 答题 / 结果 + 雷达图海报）
 assets/                    地图 marker 图标
 assets/miniprogram-code.png 海报右下角的小程序码（需自行下载放置，缺失时画虚线占位）
 tests/range.test.js        续航地图核心算法测试（Node 运行）

@@ -2,7 +2,8 @@
   "pages": [
     "pages/index/index",
     "pages/rangeMap/index",
-    "pages/payback/index"
+    "pages/payback/index",
+    "pages/quiz/index"
   ],
   "window": {
     "navigationStyle": "custom",
@@ -27,7 +28,11 @@
       },
       {
         "pagePath": "pages/payback/index",
-        "text": "计算租买回本"
+        "text": "租买回本"
+      },
+      {
+        "pagePath": "pages/quiz/index",
+        "text": "骑士性格"
       }
     ]
   },

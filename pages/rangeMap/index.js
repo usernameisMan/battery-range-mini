@@ -20,6 +20,14 @@ function rgba(rgb, alpha) {
   return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha.toFixed(3)})`;
 }
 
+// 分钟数格式化成「x 分钟」/「x 小时 y 分钟」
+function formatDurationText(minutes) {
+  if (minutes < 60) return `${minutes} 分钟`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m ? `${h} 小时 ${m} 分钟` : `${h} 小时`;
+}
+
 // 按里程区间截取路线折线（两端用插值点补齐）
 function sliceRoute(points, cum, from, to) {
   const total = cum[cum.length - 1];
@@ -729,9 +737,13 @@ Page({
       levelText = "可到达但电量很紧，建议补电";
     }
 
+    // 用时自己按平均时速算：电单车接口返回的 duration 偏小，不可直接采用
+    const speedKmh = config.DEFAULTS.speedKmh || 45;
+    const rideMinutes = Math.max(1, Math.round(((needM / 1000) / speedKmh) * 60));
+
     const routeInfo = {
       distanceText: `${(totalM / 1000).toFixed(1)} km${d.roundTrip ? " × 2" : ""}`,
-      durationText: `${Math.max(1, Math.round((route.duration || 0) / 60))} 分钟`,
+      durationText: formatDurationText(rideMinutes),
       usedText: `${Math.round(usedPct)}%`,
       remainText:
         remainPct >= 0

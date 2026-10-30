@@ -240,7 +240,7 @@
     </view>
     <view class="power-hint"
       >人 + 车架(不含电池) + 货，电池重量已自动计算，无需重复填写。例：九号F2Z110Max
-      车架(不含电池)约55kg，75kg骑手空载应填 130</view
+      车架(不含电池)约55kg，75kg骑士空载应填 130</view
     >
 
     <view class="field-label" style="margin-top: 24rpx">🌡️ 气温环境</view>

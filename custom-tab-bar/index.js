@@ -5,7 +5,8 @@ Component({
     list: [
       { pagePath: "/pages/index/index", icon: "🔋", text: "计算器" },
       { pagePath: "/pages/rangeMap/index", icon: "🗺️", text: "续航地图" },
-      { pagePath: "/pages/payback/index", icon: "💰", text: "计算租买回本" },
+      { pagePath: "/pages/payback/index", icon: "💰", text: "租买回本" },
+      { pagePath: "/pages/quiz/index", icon: "🏍️", text: "骑士性格" },
     ],
   },
 

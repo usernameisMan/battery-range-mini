@@ -23,6 +23,7 @@ module.exports = {
     reserve: 15, // 安全预留 %
     detourFactor: 70, // 绕路系数 70 = 0.7
     roundTrip: false,
+    speedKmh: 45, // 路线用时的平均时速（km/h），不用地图接口返回的 duration
   },
 
   RANGE_LIMITS: {

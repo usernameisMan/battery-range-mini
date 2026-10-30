@@ -3,7 +3,7 @@
   <view class="hero" style="padding-top: {{topSafeArea}}px">
     <view class="hero-glow-a"></view>
     <view class="hero-glow-b"></view>
-    <view class="hero-eyebrow">外卖骑手 · 租车 / 买车 回本测算</view>
+    <view class="hero-eyebrow">骑士 · 租车 / 买车 回本测算</view>
     <view class="hero-headline">{{headline}}</view>
     <view class="hero-sub">{{heroSub}}</view>
 

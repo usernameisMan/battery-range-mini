@@ -1,0 +1,129 @@
+<!--
+  骑士性格测试（娱乐向）
+  三个状态：intro 引导 / quiz 答题 / result 结果（雷达图 + 海报）
+-->
+<view class="page">
+  <!-- ===== 引导 ===== -->
+  <block wx:if="{{stage === 'intro'}}">
+    <view class="intro" style="padding-top: {{topSafeArea + 24}}px">
+      <view class="eyebrow">娱乐向 · {{total}} 题 · 约 40 秒</view>
+      <view class="title">你是哪种<text class="title-accent">骑士</text>？</view>
+      <view class="subtitle">凭第一直觉选，别想太多。测完立刻出一张六维雷达图，还能生成海报发群里。</view>
+
+      <view class="role-grid">
+        <view wx:for="{{roles}}" wx:key="key" class="role-chip">
+          <text class="role-emoji">{{item.emoji}}</text>
+          <text class="role-label">{{item.label}}</text>
+        </view>
+      </view>
+
+      <view class="start-btn" bindtap="start">开始测试</view>
+      <view class="intro-note">队友都在测，测完可以比一比谁更离谱</view>
+
+      <view class="disclaimer">本测试为娱乐向内容，题目与结论均为主观设定，不构成专业心理测评或任何建议。</view>
+    </view>
+  </block>
+
+  <!-- ===== 答题 ===== -->
+  <block wx:elif="{{stage === 'quiz'}}">
+    <view class="quiz" style="padding-top: {{topSafeArea + 6}}px">
+      <view class="quiz-head">
+        <view class="quiz-back" bindtap="onBackTap">
+          <text class="quiz-back-icon">‹</text>
+          <text>{{index === 0 ? '退出' : '上一题'}}</text>
+        </view>
+        <text class="quiz-count">{{index + 1}} / {{total}}</text>
+      </view>
+      <view class="progress">
+        <view class="progress-bar" style="width: {{progress}}%"></view>
+      </view>
+
+      <view class="q-card">
+        <view class="q-index">第 {{index + 1}} 题</view>
+        <view class="q-text">{{question.text}}</view>
+      </view>
+
+      <view class="options">
+        <view
+          wx:for="{{question.options}}"
+          wx:key="letter"
+          class="option {{selected === index ? 'picked' : ''}}"
+          data-index="{{index}}"
+          bindtap="onPick"
+          hover-class="option-hover"
+        >
+          <text class="option-letter">{{item.letter}}</text>
+          <text class="option-text">{{item.text}}</text>
+        </view>
+      </view>
+
+      <view class="quiz-tip">凭第一感觉选，越纠结越不准</view>
+    </view>
+  </block>
+
+  <!-- ===== 结果 ===== -->
+  <block wx:else>
+    <view class="result" style="padding-top: {{topSafeArea + 10}}px">
+      <view class="result-eyebrow">你的骑士人格</view>
+      <view class="result-role">
+        <text class="result-emoji">{{result.role.emoji}}</text>
+        <view class="result-role-main">
+          <view class="result-name">{{result.role.name}}</view>
+          <view class="result-tagline">{{result.role.tagline}}</view>
+        </view>
+      </view>
+      <view class="result-secondary">副属性：{{result.secondName}}</view>
+
+      <view class="card">
+        <view class="card-title">六维骑士画像</view>
+        <canvas type="2d" id="radar" class="radar"></canvas>
+      </view>
+
+      <view class="card">
+        <view class="card-title">维度得分</view>
+
+        <view class="beat-hero">
+          <view class="beat-main">你最拿手的是 <text class="beat-key">{{result.top[0].name}}</text></view>
+          <view class="beat-big">超过 {{result.top[0].beat}}% 的骑士</view>
+          <view class="beat-sub">这项很少人比得过你，截图发群里让他们服气</view>
+        </view>
+
+        <view wx:for="{{result.dims}}" wx:key="key" class="dim-row">
+          <view class="dim-top">
+            <text class="dim-name">{{item.name}}</text>
+            <text class="dim-beat {{item.beat >= 60 ? 'hot' : ''}}">超过 {{item.beat}}%</text>
+            <text class="dim-value">{{item.percent}}</text>
+          </view>
+          <view class="dim-track">
+            <view class="dim-fill" style="width: {{item.percent}}%; background: {{item.color}};"></view>
+          </view>
+        </view>
+
+        <view class="beat-note">百分比按本测试全部作答组合计算，仅供娱乐</view>
+      </view>
+
+      <view class="card">
+        <view class="card-title">你的骑行习惯</view>
+        <view wx:for="{{result.role.traits}}" wx:key="*this" class="trait">· {{item}}</view>
+        <view class="kv">
+          <text class="kv-label">最佳发挥</text>
+          <text class="kv-value">{{result.role.bestFor}}</text>
+        </view>
+        <view class="kv">
+          <text class="kv-label">注意</text>
+          <text class="kv-value">{{result.role.watchOut}}</text>
+        </view>
+      </view>
+
+      <view class="result-desc">{{result.role.desc}}</view>
+
+      <view class="poster-btn" bindtap="onGeneratePoster">生成海报，发群里让他们测</view>
+      <view class="result-actions">
+        <button class="share-btn" open-type="share">转发给队友</button>
+        <view class="again-btn" bindtap="restart">再测一次</view>
+      </view>
+
+      <view class="disclaimer">本测试为娱乐向内容，不构成专业心理测评或任何建议。</view>
+    </view>
+  </block>
+</view>

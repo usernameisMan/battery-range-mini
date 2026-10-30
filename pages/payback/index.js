@@ -1,4 +1,4 @@
-// 外卖骑手「租车 / 买车」回本测算页
+// 骑士「租车 / 买车」回本测算页
 // 计算全部在 utils/rentbuy.js 中完成，本文件只负责交互与展示
 const { calc, DEFAULTS, PRESET_PERCENTS } = require("../../utils/rentbuy");
 const { maybeShowServiceTip } = require("../../utils/serviceTip");
@@ -675,7 +675,7 @@ Page({
     ctx.textBaseline = "alphabetic";
     ctx.fillStyle = "#93c5fd";
     ctx.font = "bold 24px sans-serif";
-    ctx.fillText("外卖骑手 · 租车 / 买车 回本测算", 48, 92);
+    ctx.fillText("骑士 · 租车 / 买车 回本测算", 48, 92);
 
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 56px sans-serif";

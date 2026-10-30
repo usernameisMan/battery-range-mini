@@ -1,0 +1,50 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/rangeMap/index",
+    "pages/payback/index",
+    "pages/quiz/index"
+  ],
+  "window": {
+    "navigationStyle": "custom",
+    "navigationBarTitleText": "续航计算器",
+    "backgroundColor": "#f0f4f8",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#9ca3af",
+    "selectedColor": "#3b82f6",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "计算器"
+      },
+      {
+        "pagePath": "pages/rangeMap/index",
+        "text": "续航地图"
+      },
+      {
+        "pagePath": "pages/payback/index",
+        "text": "计算租买回本"
+      },
+      {
+        "pagePath": "pages/quiz/index",
+        "text": "骑士性格"
+      }
+    ]
+  },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于计算你的续航可达范围与到目的地的路线"
+    }
+  },
+  "requiredPrivateInfos": [
+    "getLocation",
+    "chooseLocation"
+  ],
+  "sitemapLocation": "sitemap.json",
+  "style": "v2"
+}
